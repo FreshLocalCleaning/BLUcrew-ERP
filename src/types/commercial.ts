@@ -130,3 +130,147 @@ export interface Client extends BaseEntity {
   /** Contact IDs associated with this client */
   contacts: string[]
 }
+
+// ---------------------------------------------------------------------------
+// Contact enums (CORE-01 Relationship Mapping)
+// ---------------------------------------------------------------------------
+
+export const CONTACT_LAYERS = [
+  'pm_super_field',
+  'estimator_precon',
+  'exec_owner_rep',
+  'coordinator_admin',
+  'blu_champion',
+] as const
+export type ContactLayer = (typeof CONTACT_LAYERS)[number]
+
+export const CONTACT_LAYER_LABELS: Record<ContactLayer, string> = {
+  pm_super_field: 'PM/Super/Field Lead',
+  estimator_precon: 'Estimator/Precon',
+  exec_owner_rep: 'Exec/Owner Rep',
+  coordinator_admin: 'Coordinator/Admin',
+  blu_champion: 'BLU Champion',
+}
+
+export const CONTACT_INFLUENCE_LEVELS = ['high', 'medium', 'low'] as const
+export type ContactInfluence = (typeof CONTACT_INFLUENCE_LEVELS)[number]
+
+export const CONTACT_INFLUENCE_LABELS: Record<ContactInfluence, string> = {
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+}
+
+export const CONTACT_RELATIONSHIP_STRENGTHS = [
+  'new',
+  'developing',
+  'active',
+  'trusted',
+  'dormant',
+] as const
+export type ContactRelationshipStrength = (typeof CONTACT_RELATIONSHIP_STRENGTHS)[number]
+
+export const CONTACT_RELATIONSHIP_LABELS: Record<ContactRelationshipStrength, string> = {
+  new: 'New',
+  developing: 'Developing',
+  active: 'Active',
+  trusted: 'Trusted',
+  dormant: 'Dormant',
+}
+
+export const CONTACT_SOURCE_CHANNELS = [
+  'trailer_visit',
+  'cold_outreach',
+  'event',
+  'luncheon',
+  'referral',
+  'repeat_client',
+  'inbound',
+  'project_handoff',
+] as const
+export type ContactSourceChannel = (typeof CONTACT_SOURCE_CHANNELS)[number]
+
+export const CONTACT_SOURCE_LABELS: Record<ContactSourceChannel, string> = {
+  trailer_visit: 'Trailer Visit',
+  cold_outreach: 'Cold Outreach',
+  event: 'Event',
+  luncheon: 'Luncheon',
+  referral: 'Referral',
+  repeat_client: 'Repeat Client',
+  inbound: 'Inbound',
+  project_handoff: 'Project Handoff',
+}
+
+export const CONTACT_PREFERRED_CHANNELS = [
+  'email',
+  'phone',
+  'text',
+  'linkedin',
+  'in_person',
+] as const
+export type ContactPreferredChannel = (typeof CONTACT_PREFERRED_CHANNELS)[number]
+
+export const CONTACT_PREFERRED_CHANNEL_LABELS: Record<ContactPreferredChannel, string> = {
+  email: 'Email',
+  phone: 'Phone',
+  text: 'Text',
+  linkedin: 'LinkedIn',
+  in_person: 'In Person',
+}
+
+// ---------------------------------------------------------------------------
+// Contact interface
+// ---------------------------------------------------------------------------
+
+export interface Contact extends BaseEntity {
+  /** Human-readable reference ID: CON-XXXX */
+  reference_id: string
+  /** First name */
+  first_name: string
+  /** Last name */
+  last_name: string
+  /** Job title */
+  title?: string
+  /** Company name (denormalized for list views) */
+  company?: string
+  /** Client ID this contact belongs to */
+  client_id: string
+  /** Client name (denormalized for list views) */
+  client_name: string
+  /** Contact organizational layer */
+  layer: ContactLayer
+  /** Role type (free text, e.g. "Senior PM", "VP Operations") */
+  role_type?: string
+  /** Influence level */
+  influence: ContactInfluence
+  /** Is this person a BLU Champion? */
+  is_champion: boolean
+  /** Why this person is a champion */
+  champion_reason?: string
+  /** Email */
+  email?: string
+  /** Phone */
+  phone?: string
+  /** LinkedIn URL */
+  linkedin_url?: string
+  /** Preferred communication channel */
+  preferred_channel?: ContactPreferredChannel
+  /** Relationship strength */
+  relationship_strength: ContactRelationshipStrength
+  /** Source channel — how we met */
+  source_channel?: ContactSourceChannel
+  /** Project visibility notes */
+  project_visibility_notes?: string
+  /** Access path — how to reach them */
+  access_path?: string
+  /** Pain points */
+  pain_points?: string
+  /** General notes */
+  notes?: string
+  /** Next step text */
+  next_step?: string
+  /** Last touch date (ISO string) */
+  last_touch_date?: string
+  /** Touch count */
+  touch_count: number
+}

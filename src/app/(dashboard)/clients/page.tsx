@@ -2,11 +2,12 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { ClientTable } from '@/components/client/client-table'
 import { listClients } from '@/lib/db/clients'
-import { seedClients } from '@/lib/db/seed'
+import { seedClients, seedContacts } from '@/lib/db/seed'
 
 export default function ClientsPage() {
   // Ensure seed data exists on first load
   seedClients()
+  seedContacts()
   const clients = listClients()
 
   return (

@@ -4,7 +4,7 @@ import { ChevronRight } from 'lucide-react'
 import { getClient } from '@/lib/db/clients'
 import { getAuditLog } from '@/lib/db/json-db'
 import { ClientDetail } from '@/components/client/client-detail'
-import { seedClients } from '@/lib/db/seed'
+import { seedClients, seedContacts } from '@/lib/db/seed'
 
 interface ClientDetailPageProps {
   params: Promise<{ id: string }>
@@ -15,6 +15,7 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
 
   // Ensure seed data exists
   seedClients()
+  seedContacts()
 
   const client = getClient(id)
   if (!client) {
