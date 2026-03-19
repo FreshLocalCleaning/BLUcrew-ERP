@@ -39,7 +39,7 @@ export function ProposalAgingChart({ data }: ProposalAgingChartProps) {
       <p className="mt-1 text-xs text-muted-foreground">
         Active proposals by age bucket ({data.total} total)
       </p>
-      <div className="mt-4 h-48">
+      <div className="mt-4 h-48" style={{ minWidth: 200, minHeight: 150 }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />

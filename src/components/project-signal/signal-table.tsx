@@ -76,11 +76,26 @@ const columns = [
   }),
   columnHelper.accessor('next_action', {
     header: 'Next Action',
-    cell: (info) => (
-      <span className="max-w-[200px] truncate text-sm">
-        {info.getValue() ?? '—'}
-      </span>
-    ),
+    cell: (info) => {
+      const val = info.getValue()
+      const signal = info.row.original
+      // If pursuit was created, show a link to the pursuit
+      if (signal.created_pursuit_id) {
+        return (
+          <Link
+            href={`/pursuits/${signal.created_pursuit_id}`}
+            className="text-sm text-primary hover:underline"
+          >
+            Pursuit opened →
+          </Link>
+        )
+      }
+      return (
+        <span className="max-w-[200px] truncate text-sm">
+          {val ?? '—'}
+        </span>
+      )
+    },
   }),
   columnHelper.accessor('next_action_date', {
     header: 'Due Date',

@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { ClientTable } from '@/components/client/client-table'
 import { listClients } from '@/lib/db/clients'
+import { listContacts } from '@/lib/db/contacts'
 import { seedClients, seedContacts, seedPursuits } from '@/lib/db/seed'
+import type { Contact } from '@/types/commercial'
 
 export default function ClientsPage() {
   // Ensure seed data exists on first load
@@ -10,6 +12,17 @@ export default function ClientsPage() {
   seedContacts()
   seedPursuits()
   const clients = listClients()
+  const allContacts = listContacts()
+
+  // Group contacts by client_id for the table
+  const contactsByClient: Record<string, Contact[]> = {}
+  for (const contact of allContacts) {
+    const cid = contact.client_id
+    if (!contactsByClient[cid]) {
+      contactsByClient[cid] = []
+    }
+    contactsByClient[cid]!.push(contact)
+  }
 
   return (
     <div className="space-y-6">
@@ -31,7 +44,7 @@ export default function ClientsPage() {
       </div>
 
       {/* Table */}
-      <ClientTable clients={clients} />
+      <ClientTable clients={clients} contactsByClient={contactsByClient} />
     </div>
   )
 }

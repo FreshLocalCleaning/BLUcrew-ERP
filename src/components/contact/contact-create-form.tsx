@@ -19,7 +19,8 @@ import {
   type Client,
 } from '@/types/commercial'
 import { toast } from 'sonner'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { roleToLayer } from '@/lib/contacts/utils'
 
 interface ContactCreateFormProps {
   clients: Client[]
@@ -33,6 +34,7 @@ export function ContactCreateForm({ clients }: ContactCreateFormProps) {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<CreateContactInput>({
@@ -48,6 +50,17 @@ export function ContactCreateForm({ clients }: ContactCreateFormProps) {
   })
 
   const isChampion = watch('is_champion')
+  const roleType = watch('role_type')
+
+  // FIX 4: Auto-set layer when role_type changes
+  useEffect(() => {
+    if (roleType) {
+      const inferredLayer = roleToLayer(roleType)
+      if (inferredLayer) {
+        setValue('layer', inferredLayer)
+      }
+    }
+  }, [roleType, setValue])
 
   async function onSubmit(data: CreateContactInput) {
     setSubmitting(true)

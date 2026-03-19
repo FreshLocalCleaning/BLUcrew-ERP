@@ -18,13 +18,21 @@ import {
   CLIENT_TIER_LABELS,
   CLIENT_MARKET_LABELS,
   CLIENT_RELATIONSHIP_LABELS,
-  CLIENT_VERTICAL_LABELS,
   type Client,
+  type Contact,
+  type ClientTier,
 } from '@/types/commercial'
 import { ArrowUpDown, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getTierForContacts, getPrimaryContact } from '@/lib/contacts/utils'
 
-const columnHelper = createColumnHelper<Client>()
+/** Extended client row with computed fields for display */
+interface ClientRow extends Client {
+  _primaryContact?: Contact
+  _computedTier: ClientTier
+}
+
+const columnHelper = createColumnHelper<ClientRow>()
 
 const columns = [
   columnHelper.accessor('name', {
@@ -56,11 +64,20 @@ const columns = [
       />
     ),
   }),
-  columnHelper.accessor('tier', {
+  columnHelper.accessor('_computedTier', {
     header: 'Tier',
     cell: (info) => {
       const val = info.getValue()
-      return val ? CLIENT_TIER_LABELS[val] : '—'
+      const colors: Record<ClientTier, string> = {
+        A: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+        B: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+        C: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+      }
+      return (
+        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', colors[val])}>
+          {CLIENT_TIER_LABELS[val]}
+        </span>
+      )
     },
   }),
   columnHelper.accessor('market', {
@@ -77,9 +94,21 @@ const columns = [
       return val ? CLIENT_RELATIONSHIP_LABELS[val] : '—'
     },
   }),
-  columnHelper.accessor('bd_owner_name', {
-    header: 'Owner',
-    cell: (info) => info.getValue() ?? '—',
+  columnHelper.accessor('_primaryContact', {
+    header: 'Primary Contact',
+    cell: (info) => {
+      const contact = info.getValue()
+      if (!contact) return <span className="text-muted-foreground">—</span>
+      return (
+        <Link
+          href={`/contacts/${contact.id}`}
+          className="font-medium hover:underline"
+          style={{ color: '#60a5fa' }}
+        >
+          {contact.first_name} {contact.last_name}
+        </Link>
+      )
+    },
   }),
   columnHelper.accessor('next_action', {
     header: 'Next Action',
@@ -105,14 +134,24 @@ const columns = [
 
 interface ClientTableProps {
   clients: Client[]
+  contactsByClient: Record<string, Contact[]>
 }
 
-export function ClientTable({ clients }: ClientTableProps) {
+export function ClientTable({ clients, contactsByClient }: ClientTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
-  const data = useMemo(() => clients, [clients])
+  const data = useMemo<ClientRow[]>(() => {
+    return clients.map((client) => {
+      const clientContacts = contactsByClient[client.id] ?? []
+      return {
+        ...client,
+        _primaryContact: getPrimaryContact(clientContacts),
+        _computedTier: getTierForContacts(clientContacts),
+      }
+    })
+  }, [clients, contactsByClient])
 
   const table = useReactTable({
     data,

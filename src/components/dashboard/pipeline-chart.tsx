@@ -28,7 +28,7 @@ export function PipelineChart({ data }: PipelineChartProps) {
     <div className="rounded-lg border border-border bg-card p-6">
       <h2 className="text-lg font-semibold text-foreground">Pipeline by Stage</h2>
       <p className="mt-1 text-xs text-muted-foreground">Active records at each pipeline stage</p>
-      <div className="mt-4 h-64">
+      <div className="mt-4 h-64" style={{ minWidth: 200, minHeight: 200 }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ left: 20, right: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
