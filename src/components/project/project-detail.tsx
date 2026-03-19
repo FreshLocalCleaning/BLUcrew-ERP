@@ -12,7 +12,7 @@ import {
 } from '@/lib/state-machines/project'
 import { getAvailableTransitions } from '@/lib/state-machines/engine'
 import { transitionProjectAction } from '@/actions/project'
-import type { Project, Mobilization } from '@/types/commercial'
+import type { Project, Mobilization, ChangeOrder } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
 import Link from 'next/link'
@@ -20,6 +20,10 @@ import {
   MOBILIZATION_STATE_LABELS,
 } from '@/lib/state-machines/mobilization'
 import type { MobilizationState } from '@/lib/state-machines/mobilization'
+import {
+  CHANGE_ORDER_STATE_LABELS,
+} from '@/lib/state-machines/change-order'
+import type { ChangeOrderState } from '@/lib/state-machines/change-order'
 import {
   ArrowLeftRight,
   FileText,
@@ -39,6 +43,7 @@ interface ProjectDetailProps {
   project: Project
   auditLog: AuditEntry[]
   mobilizations?: Mobilization[]
+  changeOrders?: ChangeOrder[]
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -61,7 +66,7 @@ function formatDate(iso?: string | null): string {
 
 type Tab = 'overview' | 'mobilizations' | 'change_orders' | 'baseline' | 'financials' | 'closeout' | 'activity'
 
-export function ProjectDetail({ project: initial, auditLog, mobilizations = [] }: ProjectDetailProps) {
+export function ProjectDetail({ project: initial, auditLog, mobilizations = [], changeOrders = [] }: ProjectDetailProps) {
   const router = useRouter()
   const [project, setProject] = useState(initial)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -231,12 +236,63 @@ export function ProjectDetail({ project: initial, auditLog, mobilizations = [] }
         )}
 
         {activeTab === 'change_orders' && (
-          <div className="rounded-lg border border-dashed border-border bg-card p-12 text-center">
-            <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
-            <h3 className="mt-3 text-lg font-semibold text-foreground">Change Orders</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Change Order management will be built in Sprint 6.
-            </p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                Change Orders ({changeOrders.length})
+              </h2>
+              {['forecasting_active', 'execution_active', 'operationally_complete'].includes(project.status) && (
+                <Link
+                  href={`/change-orders/new?project=${project.id}`}
+                  className="flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Change Order
+                </Link>
+              )}
+            </div>
+
+            {changeOrders.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border bg-card p-12 text-center">
+                <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
+                <h3 className="mt-3 text-lg font-semibold text-foreground">No Change Orders</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create a change order to track post-award scope revisions.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {changeOrders.map((co) => (
+                  <Link
+                    key={co.id}
+                    href={`/change-orders/${co.id}`}
+                    className="block rounded-lg border border-border bg-card p-4 hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-sm text-primary">{co.reference_id}</span>
+                        <span className="text-sm text-foreground">
+                          {co.scope_delta.length > 50 ? co.scope_delta.slice(0, 50) + '…' : co.scope_delta}
+                        </span>
+                      </div>
+                      <StatusBadge
+                        state={co.status}
+                        label={CHANGE_ORDER_STATE_LABELS[co.status as ChangeOrderState]}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>Origin: {co.origin}</span>
+                      {co.pricing_delta && (
+                        <span className={co.pricing_delta.delta >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          {co.pricing_delta.delta >= 0 ? '+' : ''}{formatCurrency(co.pricing_delta.delta)}
+                        </span>
+                      )}
+                      <span>Priced by: {co.priced_by ?? '—'}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

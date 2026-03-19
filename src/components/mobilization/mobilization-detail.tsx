@@ -16,6 +16,7 @@ import { transitionMobilizationAction } from '@/actions/mobilization'
 import type { Mobilization } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
+import Link from 'next/link'
 import {
   ArrowLeftRight,
   FileText,
@@ -29,6 +30,7 @@ import {
   Camera,
   Shield,
   AlertTriangle,
+  Plus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -351,6 +353,13 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
               Change Status
             </button>
           )}
+          <Link
+            href={`/change-orders/new?project=${mobilization.linked_project_id}&mobilization=${mobilization.id}`}
+            className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+          >
+            <Plus className="h-4 w-4 text-muted-foreground" />
+            New Change Order
+          </Link>
         </div>
 
         {/* Readiness card in sidebar */}
