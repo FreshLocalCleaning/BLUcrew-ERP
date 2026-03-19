@@ -13,6 +13,7 @@ import type { EstimateStatus } from '@/lib/state-machines/estimate'
 import type { ProposalStatus } from '@/lib/state-machines/proposal'
 import type { AwardHandoffState } from '@/lib/state-machines/award-handoff'
 import type { ProjectState } from '@/lib/state-machines/project'
+import type { MobilizationState } from '@/lib/state-machines/mobilization'
 
 // ---------------------------------------------------------------------------
 // Client enums
@@ -727,4 +728,133 @@ export interface Project extends BaseEntity {
   billing_references: Record<string, unknown> | null
   /** Number of active change orders */
   active_change_order_count: number
+}
+
+// ---------------------------------------------------------------------------
+// Mobilization enums (ERP-12/13 — child record under Project)
+// ---------------------------------------------------------------------------
+
+export const MOBILIZATION_TRAVEL_POSTURES = ['local', 'overnight'] as const
+export type MobilizationTravelPosture = (typeof MOBILIZATION_TRAVEL_POSTURES)[number]
+
+export const MOBILIZATION_TRAVEL_POSTURE_LABELS: Record<MobilizationTravelPosture, string> = {
+  local: 'Local',
+  overnight: 'Overnight',
+}
+
+export const EQUIPMENT_STATUSES = ['packed', 'needed', 'rented', 'na'] as const
+export type EquipmentStatus = (typeof EQUIPMENT_STATUSES)[number]
+
+export const CLIENT_SIGNOFF_STATUSES = ['pending', 'obtained', 'disputed'] as const
+export type ClientSignoffStatus = (typeof CLIENT_SIGNOFF_STATUSES)[number]
+
+export const INVOICE_RELEASE_STATUSES = ['not_ready', 'staged', 'released'] as const
+export type InvoiceReleaseStatus = (typeof INVOICE_RELEASE_STATUSES)[number]
+
+// ---------------------------------------------------------------------------
+// Mobilization sub-types
+// ---------------------------------------------------------------------------
+
+export interface LodgingDetails {
+  hotel: string
+  bed_count: number
+  confirmation: string | null
+  check_in: string
+  check_out: string
+}
+
+export interface EquipmentChecklistItem {
+  item: string
+  status: EquipmentStatus
+  notes: string | null
+}
+
+export interface ReadinessChecklist {
+  crew_confirmed: boolean
+  equipment_loaded: boolean
+  travel_booked: boolean
+  lodging_booked: boolean
+  per_diem_approved: boolean
+  jobber_synced: boolean
+  teams_posted: boolean
+}
+
+export interface DailyReport {
+  date: string
+  summary: string
+  photos: string[]
+  exceptions: string | null
+  submitted_by: string
+}
+
+export interface QcStageCompletion {
+  passed: boolean
+  reviewer_id: string
+  date: string
+  notes: string
+}
+
+// ---------------------------------------------------------------------------
+// Mobilization interface (ERP-12 Table 3 R12, ERP-13, ERP-16)
+// ---------------------------------------------------------------------------
+
+export interface Mobilization extends BaseEntity {
+  /** Human-readable reference ID: MOB-XXXX */
+  reference_id: string
+  /** Current lifecycle state */
+  status: MobilizationState
+  /** Linked project ID (required) */
+  linked_project_id: string
+  /** Linked client ID (denormalized) */
+  linked_client_id: string
+  /** Client-facing stage name from project's client_stage_map */
+  stage_name: string
+  /** Crew lead user ID */
+  crew_lead_id: string | null
+  /** Array of named technician user IDs */
+  named_technicians: string[]
+  /** Requested start date (ISO string) */
+  requested_start_date: string | null
+  /** Requested end date (ISO string) */
+  requested_end_date: string | null
+  /** Actual start date (ISO string) */
+  actual_start_date: string | null
+  /** Actual end date (ISO string) */
+  actual_end_date: string | null
+  /** Site address */
+  site_address: string | null
+  /** Access plan */
+  access_plan: string | null
+  /** Travel posture: local or overnight */
+  travel_posture: MobilizationTravelPosture
+  /** Lodging details (overnight only) */
+  lodging_details: LodgingDetails | null
+  /** Per diem budget */
+  per_diem_budget: number | null
+  /** Equipment checklist items */
+  equipment_checklist: EquipmentChecklistItem[]
+  /** Vehicle plan */
+  vehicle_plan: string | null
+  /** Readiness gate checklist */
+  readiness_checklist: ReadinessChecklist
+  /** Compressed planning flag per ERP-13 */
+  compressed_planning: boolean
+  /** Daily field reports */
+  daily_reports: DailyReport[]
+  /** SharePoint link to photo report */
+  photo_report_link: string | null
+  /** Client sign-off status */
+  client_signoff_status: ClientSignoffStatus | null
+  /** QC stage completion */
+  qc_stage_completion: QcStageCompletion | null
+  /** Invoice release status */
+  invoice_release_status: InvoiceReleaseStatus | null
+  /** Blocker reason (for blocked state) */
+  blocker_reason: string | null
+  /** Blocker owner (for blocked state) */
+  blocker_owner: string | null
+  /** Missing items log (for handoff_incomplete state) */
+  missing_items_log: string[] | null
+  /** Actuals notes */
+  actuals_notes: string | null
 }
