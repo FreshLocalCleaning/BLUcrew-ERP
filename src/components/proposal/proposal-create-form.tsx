@@ -34,8 +34,9 @@ export function ProposalCreateForm({ eligibleEstimates }: ProposalCreateFormProp
     handleSubmit,
     setValue,
     formState: { errors },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<CreateProposalInput>({
-    resolver: zodResolver(createProposalSchema),
+    resolver: zodResolver(createProposalSchema) as any,
     defaultValues: {
       linked_estimate_id: '',
       linked_pursuit_id: '',

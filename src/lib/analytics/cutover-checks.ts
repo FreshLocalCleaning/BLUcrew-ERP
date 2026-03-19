@@ -32,7 +32,7 @@ export interface SystemHealth {
 // Schema freeze check
 // ---------------------------------------------------------------------------
 
-const REQUIRED_COLLECTIONS: db.CollectionName[] = [
+const REQUIRED_COLLECTIONS: db.EntityCollectionName[] = [
   'clients', 'contacts', 'project_signals', 'pursuits', 'estimates',
   'proposals', 'award_handoffs', 'projects', 'mobilizations',
   'change_orders', 'expansion_tasks',

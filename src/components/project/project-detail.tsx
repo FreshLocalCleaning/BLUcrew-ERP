@@ -308,12 +308,12 @@ export function ProjectDetail({ project: initial, auditLog, mobilizations = [], 
               <DetailItem icon={DollarSign} label="Proposal Value" value={formatCurrency(snapshot?.proposal_value as number)} />
               <DetailItem icon={FileText} label="Stages" value={String(snapshot?.stage_count ?? '—')} />
             </div>
-            {snapshot?.scope_text && (
+            {snapshot?.scope_text ? (
               <div className="mt-4 border-t border-border pt-4">
                 <p className="text-xs font-medium uppercase text-muted-foreground">Scope</p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{String(snapshot.scope_text)}</p>
               </div>
-            )}
+            ) : null}
           </div>
         )}
 

@@ -83,7 +83,7 @@ export function ReportsDashboard({
                   borderRadius: '8px',
                   fontSize: 12,
                 }}
-                formatter={(value: number) => [`${value.toFixed(0)}%`, 'Hygiene']}
+                formatter={(value) => [`${Number(value).toFixed(0)}%`, 'Hygiene']}
               />
               <Bar dataKey="rate" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -112,8 +112,8 @@ export function ReportsDashboard({
                     borderRadius: '8px',
                     fontSize: 12,
                   }}
-                  formatter={(value: number, _: string, props: { payload: StageAgingData }) => [
-                    `${value.toFixed(0)} days (${props.payload.count} pursuits)`,
+                  formatter={(value, _, props) => [
+                    `${Number(value).toFixed(0)} days (${(props as { payload: StageAgingData }).payload.count} pursuits)`,
                     'Avg',
                   ]}
                 />
@@ -141,8 +141,8 @@ export function ReportsDashboard({
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }: { name: string; percent: number }) =>
-                    `${name}: ${(percent * 100).toFixed(0)}%`
+                  label={({ name, percent }: { name?: string; percent?: number }) =>
+                    `${name ?? ''}: ${((percent ?? 0) * 100).toFixed(0)}%`
                   }
                   outerRadius={80}
                   dataKey="value"

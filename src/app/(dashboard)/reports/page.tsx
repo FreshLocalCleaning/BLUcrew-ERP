@@ -58,7 +58,7 @@ function computeExpansionSummary() {
 }
 
 function computeHygieneByEntity() {
-  const collections: db.CollectionName[] = [
+  const collections: db.EntityCollectionName[] = [
     'clients', 'contacts', 'pursuits', 'estimates', 'proposals',
     'projects', 'mobilizations', 'change_orders',
   ]

@@ -46,7 +46,7 @@ export function PipelineChart({ data }: PipelineChartProps) {
                 borderRadius: '8px',
                 fontSize: 12,
               }}
-              formatter={(value: number) => [value, 'Count']}
+              formatter={(value) => [Number(value), 'Count']}
             />
             <Bar dataKey="count" radius={[0, 4, 4, 0]}>
               {data.map((_, i) => (

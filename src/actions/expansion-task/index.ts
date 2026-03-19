@@ -113,7 +113,8 @@ export async function updateExpansionTaskFieldsAction(
 
   const { id, ...changes } = parsed.data
   const actor = getCurrentActor()
-  const updated = expansionTaskDb.updateExpansionTask(id, changes, actor.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updated = expansionTaskDb.updateExpansionTask(id, changes as any, actor.id)
   return { success: true, data: updated }
 }
 
