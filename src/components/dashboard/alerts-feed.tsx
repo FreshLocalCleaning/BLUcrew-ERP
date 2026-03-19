@@ -1,19 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import { AlertTriangle, Clock, Pause, Truck } from 'lucide-react'
+import { AlertTriangle, Clock, Pause, Truck, DollarSign } from 'lucide-react'
 import type { Alert } from '@/lib/analytics/kpi-engine'
 
 const ALERT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   overdue_next_action: Clock,
   blocked_mobilization: Truck,
   stalled_pursuit: Pause,
+  co_needs_pricing: DollarSign,
 }
 
 const ALERT_COLORS: Record<string, string> = {
   overdue_next_action: 'text-red-500',
   blocked_mobilization: 'text-orange-500',
   stalled_pursuit: 'text-yellow-500',
+  co_needs_pricing: 'text-amber-500',
 }
 
 function entityHref(entityType: string, entityId: string): string {

@@ -48,6 +48,7 @@ export type CreateChangeOrderInput = z.infer<typeof createChangeOrderSchema>
 
 export const updateChangeOrderSchema = z.object({
   id: z.string().min(1, 'Change Order ID is required'),
+  origin: ChangeOrderOriginEnum.optional(),
   scope_delta: z.string().min(1).max(5000).optional(),
   pricing_delta: pricingDeltaSchema.nullable().optional(),
   schedule_delta: z.string().nullable().optional(),

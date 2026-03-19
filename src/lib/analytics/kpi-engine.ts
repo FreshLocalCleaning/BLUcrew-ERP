@@ -276,6 +276,20 @@ export function activeAlerts(): Alert[] {
     }
   }
 
+  // Change orders awaiting estimating (internal_review = needs pricing)
+  const changeOrders = db.list<ChangeOrder>('change_orders')
+  for (const co of changeOrders) {
+    if (co.status === 'internal_review' && !co.pricing_delta) {
+      alerts.push({
+        type: 'co_needs_pricing',
+        entity_type: 'change_orders',
+        entity_id: co.id,
+        ref_id: co.reference_id,
+        message: `Needs pricing: ${co.scope_delta.length > 60 ? co.scope_delta.slice(0, 60) + '…' : co.scope_delta}`,
+      })
+    }
+  }
+
   // Stalled pursuits (no update in 14+ days)
   const pursuits = db.list<Pursuit>('pursuits')
   const staleDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
