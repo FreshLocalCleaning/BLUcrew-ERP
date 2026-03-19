@@ -241,18 +241,18 @@ export function AwardHandoffDetail({ awardHandoff: initial, auditLog }: AwardHan
               <p className="text-xs text-muted-foreground mb-3">
                 Frozen pricing snapshot from estimate at time of proposal acceptance.
               </p>
-              {snapshot?.scope_text && (
+              {snapshot?.scope_text ? (
                 <div className="mb-4">
                   <p className="text-xs font-medium uppercase text-muted-foreground">Scope</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{String(snapshot.scope_text)}</p>
                 </div>
-              )}
-              {snapshot?.assumptions && (
+              ) : null}
+              {snapshot?.assumptions ? (
                 <div>
                   <p className="text-xs font-medium uppercase text-muted-foreground">Assumptions</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{String(snapshot.assumptions)}</p>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         )}

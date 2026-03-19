@@ -26,8 +26,9 @@ export function ClientCreateForm() {
     register,
     handleSubmit,
     formState: { errors },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<CreateClientInput>({
-    resolver: zodResolver(createClientSchema),
+    resolver: zodResolver(createClientSchema) as any,
     defaultValues: {
       name: '',
       notes: '',

@@ -102,7 +102,7 @@ export function lossReasonDistribution(): { reason: string; count: number }[] {
 
 /** Next-action hygiene: % of active records with owner + next_action + next_action_date */
 export function nextActionHygiene(): { rate: number; compliant: number; total: number } {
-  const collections: db.CollectionName[] = [
+  const collections: db.EntityCollectionName[] = [
     'clients', 'contacts', 'pursuits', 'estimates', 'proposals',
     'award_handoffs', 'projects', 'mobilizations', 'change_orders', 'expansion_tasks',
   ]
@@ -243,7 +243,7 @@ export function activeAlerts(): Alert[] {
   const today = todayStr()
 
   // Overdue next actions across entities
-  const collections: db.CollectionName[] = [
+  const collections: db.EntityCollectionName[] = [
     'clients', 'pursuits', 'estimates', 'proposals',
     'award_handoffs', 'projects', 'mobilizations', 'change_orders',
   ]
