@@ -215,7 +215,7 @@ var P = {
  } }
 };
 var CLIENTS = [
- // === FLC DIRECT / MSA CLIENTS ===
+ // === BLU CREW DIRECT / MSA CLIENTS ===
  { name: "JM Phelps Construction", def: "gas_station", msa: false, note: "Gas Stations / C-Stores, windows included" },
  { name: "Robins & Morton", def: "hospital", msa: false, note: "Hospitals; Schools. Facade restoration common." },
  { name: "SPD Construction", def: "dealership", msa: false, note: "Auto Dealerships" },
@@ -853,7 +853,7 @@ function FLCEstimator(props) {
    var url = URL.createObjectURL(blob);
    var a = document.createElement("a");
    a.href = url;
-   a.download = "FLC_Backup_" + new Date().toISOString().slice(0, 10) + ".json";
+   a.download = "BLU_Backup_" + new Date().toISOString().slice(0, 10) + ".json";
    a.click();
    URL.revokeObjectURL(url);
    sSaveMsg("Backup downloaded ✓");
@@ -1418,7 +1418,7 @@ function FLCEstimator(props) {
   var L = [];
   L.push("═══════════════════════════════════════════════════════════");
   L.push("CHANGE ORDER");
-  L.push("BLU Crew — Powered by Fresh Local Cleaning");
+  L.push("BLU Crew — Clean the Universe");
   L.push("═══════════════════════════════════════════════════════════");
   L.push("");
   L.push("Project: " + proj.name);
@@ -1535,7 +1535,7 @@ function FLCEstimator(props) {
    // PRICING BREAKDOWN header
    if (line.indexOf("PRICING BREAKDOWN") >= 0) { elements.push({ type: "section", text: line }); i++; continue; }
    // Footer
-   if (line.indexOf("BLU Crew") === 0 || line.indexOf("Fresh Local Cleaning") === 0 || line.indexOf("Dallas, TX") === 0 || line.indexOf("Caddo Mills") === 0 || (line.indexOf("Generated:") >= 0 && line.indexOf("FLC Estimator") >= 0)) { elements.push({ type: "footer", text: line }); i++; continue; }
+   if (line.indexOf("BLU Crew") === 0 || line.indexOf("Clean the Universe") === 0 || line.indexOf("Dallas, TX") === 0 || line.indexOf("Caddo Mills") === 0 || (line.indexOf("Generated:") >= 0 && line.indexOf("BLU Crew Estimator") >= 0)) { elements.push({ type: "footer", text: line }); i++; continue; }
    // Numbered section header (e.g. "1. PROJECT SUMMARY")
    if (/^\d+\.\s+[A-Z]/.test(line)) { elements.push({ type: "section", text: line }); i++; continue; }
    // Stage sub-header (e.g. "STAGE — PRE-PUNCHLIST DEEP CLEAN")
@@ -1619,8 +1619,8 @@ function FLCEstimator(props) {
    if (/^[A-Z][A-Za-z &\/,\-()]+$/.test(line.trim()) && line.trim().length < 60 && line.trim().length > 3 && line.charAt(0) !== " " && line.indexOf(":") < 0) { return '<div style="font-size:12px;font-weight:700;color:#333;margin-top:10px;margin-bottom:3px">' + esc + '</div>'; }
    if (/^[A-Z][A-Za-z ]+\(/.test(line.trim()) && line.trim().length < 80 && line.charAt(0) !== " " && line.indexOf(":") < 0) { return '<div style="font-size:12px;font-weight:700;color:#333;margin-top:10px;margin-bottom:3px">' + esc + '</div>'; }
    if (line.indexOf("___") >= 0) { return '<div style="font-size:12px;color:#555;margin-top:8px;padding-left:4px;font-family:monospace">' + esc + '</div>'; }
-   if (line.indexOf("Generated:") >= 0 && line.indexOf("FLC Estimator") >= 0) { return '<div style="font-size:9px;color:#BBB;text-align:center;margin-top:16px;padding-top:10px;border-top:1px solid #DDD">' + esc + '</div>'; }
-   if (line.indexOf("BLU Crew") === 0 || line.indexOf("Fresh Local Cleaning") === 0 || line.indexOf("Dallas, TX") === 0 || line.indexOf("Caddo Mills") === 0) { return '<div style="font-size:10px;color:#999;text-align:center;margin-top:4px">' + esc + '</div>'; }
+   if (line.indexOf("Generated:") >= 0 && line.indexOf("BLU Crew Estimator") >= 0) { return '<div style="font-size:9px;color:#BBB;text-align:center;margin-top:16px;padding-top:10px;border-top:1px solid #DDD">' + esc + '</div>'; }
+   if (line.indexOf("BLU Crew") === 0 || line.indexOf("Clean the Universe") === 0 || line.indexOf("Dallas, TX") === 0 || line.indexOf("Caddo Mills") === 0) { return '<div style="font-size:10px;color:#999;text-align:center;margin-top:4px">' + esc + '</div>'; }
    if (line.trim() === "") { return '<div style="height:4px"></div>'; }
    var kvMatch = line.match(/^([A-Z][A-Za-z\s\/&]+):\s(.*)/);
    if (kvMatch && line.indexOf("  ") !== 0) { return '<div style="font-size:11px;line-height:1.6;color:#333"><strong style="color:#555">' + escHtml(kvMatch[1]) + ':</strong> ' + escHtml(kvMatch[2]) + '</div>'; }
@@ -1665,7 +1665,7 @@ function FLCEstimator(props) {
   var dateStr = (d.getMonth() + 1) + "/" + d.getDate() + "/" + d.getFullYear();
   var h = '<div class="co-box">';
   h += '<div class="co-header">CHANGE ORDER</div>';
-  h += '<div class="co-sub">BLU Crew &mdash; Powered by Fresh Local Cleaning</div>';
+  h += '<div class="co-sub">BLU Crew &mdash; Clean the Universe</div>';
   h += '<div style="font-size:12px;line-height:1.8;margin-bottom:12px">';
   h += '<strong>Project:</strong> ' + escHtml(proj.name) + '<br>';
   h += '<strong>Client:</strong> ' + escHtml(proj.client) + '<br>';
@@ -1723,7 +1723,7 @@ function FLCEstimator(props) {
    inner += buildHeaderHTML(pr2);
    inner += '<div style="padding:0 4px">' + scopeToHTML(scope) + '</div>';
   }
-  inner += '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #DDD;text-align:center;font-size:9px;color:#BBB">Generated: ' + new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + ' | FLC Estimator &mdash; BLU Crew</div>';
+  inner += '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #DDD;text-align:center;font-size:9px;color:#BBB">Generated: ' + new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + ' | BLU Crew Estimator &mdash; BLU Crew</div>';
   return inner;
  }
  function loadHtml2Pdf() {
@@ -1810,7 +1810,7 @@ function FLCEstimator(props) {
    bodyText += "TOTAL: " + fmt(pr2.gt) + "\r\n";
    bodyText += "Proposal valid for 90 days from date of submission.\r\n\r\n";
   }
-  bodyText += "Thank you,\r\nBLU Crew — Powered by Fresh Local Cleaning\r\n";
+  bodyText += "Thank you,\r\nBLU Crew — Clean the Universe\r\n";
   loadHtml2Pdf().then(function(h2p) {
    return h2p().set({
     margin: [0.5, 0.6, 0.5, 0.6],
@@ -2300,9 +2300,9 @@ function FLCEstimator(props) {
   L.push("Company: " + (proj.client || "___________________________________"));
   L.push("");
   L.push("==================================================");
-  L.push("BLU Crew — Powered by Fresh Local Cleaning");
+  L.push("BLU Crew — Clean the Universe");
   L.push("Dallas, TX | Post-Construction Specialists");
-  L.push("Generated: " + new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + " | FLC Estimator");
+  L.push("Generated: " + new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + " | BLU Crew Estimator");
   return L.join("\n");
  }
  function genScope() {
@@ -2487,8 +2487,8 @@ function FLCEstimator(props) {
    <div style={{ background: "linear-gradient(135deg, " + BLU + ", #0D1F38)", padding: isMobile ? "12px 14px" : "16px 28px", position: "sticky", top: 0, zIndex: 50 }}>
     <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
      <div>
-      <div style={{ color: "white", fontSize: isMobile ? 16 : 20, fontWeight: 700 }}>FLC ESTIMATOR</div>
-      {!isMobile && <div style={{ color: "#8BAFD4", fontSize: 11 }}>BLU Crew — Powered by Fresh Local Cleaning</div>}
+      <div style={{ color: "white", fontSize: isMobile ? 16 : 20, fontWeight: 700 }}>BLU CREW ESTIMATOR</div>
+      {!isMobile && <div style={{ color: "#8BAFD4", fontSize: 11 }}>BLU Crew — Clean the Universe</div>}
      </div>
      <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
       {SN.map(function(s, i) {
