@@ -474,7 +474,8 @@ var PRESETS = [
  { label: "Final Only", ids: ["final"] },
  { label: "PPDC + Final", ids: ["prePunch", "final"] },
  { label: "3-Stage", ids: ["preEquip", "prePunch", "final"] },
- { label: "4-Stage BLU", ids: ["preEquip", "prePunch", "final", "go"] }
+ { label: "4-Stage BLU", ids: ["preEquip", "prePunch", "final", "go"] },
+ { label: "Custom", ids: null }
 ];
 var SURCH_LIST = [
  { id: "night", name: "Night/Rush", range: "15-35%", min: 15, max: 35, def: 25 },
@@ -2701,9 +2702,16 @@ function FLCEstimator(props) {
        </div>
        <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
         {PRESETS.map(function(p) {
+         var isCustom = p.ids === null;
+         var isActive = false;
+         if (isCustom) {
+          isActive = !PRESETS.some(function(pr) { return pr.ids !== null && pr.ids.length === sel.length && pr.ids.every(function(id) { return sel.indexOf(id) >= 0; }); });
+         } else {
+          isActive = p.ids.length === sel.length && p.ids.every(function(id) { return sel.indexOf(id) >= 0; });
+         }
          return (
-          <button key={p.label} onClick={function() { sSel(p.ids); }}
-           style={{ padding: "3px 10px", borderRadius: 14, border: "1px solid #DDD", background: "white", fontSize: 10, color: "#666", cursor: "pointer" }}>
+          <button key={p.label} onClick={function() { if (!isCustom) { sSel(p.ids); } }}
+           style={{ padding: "3px 10px", borderRadius: 14, border: "1px solid " + (isActive ? ACC : "#DDD"), background: isActive ? LT : "white", fontSize: 10, color: isActive ? BLU : "#666", fontWeight: isActive ? 700 : 400, cursor: "pointer" }}>
            {p.label}
           </button>
          );
