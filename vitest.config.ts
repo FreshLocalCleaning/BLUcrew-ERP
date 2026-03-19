@@ -7,6 +7,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/tests/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    fileParallelism: false, // JSON file DB is shared — tests must run sequentially
   },
   resolve: {
     alias: {

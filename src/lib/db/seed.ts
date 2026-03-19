@@ -895,7 +895,7 @@ export function seedProposals(): void {
 // ---------------------------------------------------------------------------
 
 export function seedAwardHandoffs(): void {
-  const existing = db.list('awards')
+  const existing = db.list('award_handoffs')
   if (existing.length > 0) {
     return
   }
@@ -946,7 +946,7 @@ export function seedAwardHandoffs(): void {
   ]
 
   const awardHandoff = db.create<AwardHandoff>(
-    'awards',
+    'award_handoffs',
     {
       reference_id: 'AWD-0001',
       status: 'pm_claimed' as AwardHandoffState,
@@ -993,7 +993,7 @@ export function seedProjects(): void {
 
   const clients = db.list<Client>('clients')
   const clientByName = new Map(clients.map((c) => [c.name, c]))
-  const awardHandoffs = db.list<AwardHandoff>('awards')
+  const awardHandoffs = db.list<AwardHandoff>('award_handoffs')
 
   const crunchClient = clientByName.get('Summit Peak Builders')
   if (!crunchClient) return
@@ -1026,7 +1026,7 @@ export function seedProjects(): void {
 
   // Link project back to award
   db.update<AwardHandoff>(
-    'awards',
+    'award_handoffs',
     crunchAward.id,
     { created_project_id: project.id, status: 'closed_to_ops' as AwardHandoffState },
     'system-seed',

@@ -38,7 +38,7 @@ export default async function AwardHandoffDetailPage({ params }: AwardHandoffDet
 
   const proposal = getProposal(awardHandoff.linked_proposal_id)
   const client = getClient(awardHandoff.linked_client_id)
-  const auditLog = getAuditLog('awards', id)
+  const auditLog = getAuditLog('award_handoffs', id)
 
   return (
     <div className="space-y-6">

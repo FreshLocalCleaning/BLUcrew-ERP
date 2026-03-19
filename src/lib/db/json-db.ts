@@ -53,7 +53,7 @@ export interface DatabaseSchema {
   pursuits: Record<string, BaseEntity & Record<string, unknown>>
   estimates: Record<string, BaseEntity & Record<string, unknown>>
   proposals: Record<string, BaseEntity & Record<string, unknown>>
-  awards: Record<string, BaseEntity & Record<string, unknown>>
+  award_handoffs: Record<string, BaseEntity & Record<string, unknown>>
   projects: Record<string, BaseEntity & Record<string, unknown>>
   mobilizations: Record<string, BaseEntity & Record<string, unknown>>
   change_orders: Record<string, BaseEntity & Record<string, unknown>>
@@ -82,7 +82,7 @@ function emptyDb(): DatabaseSchema {
     pursuits: {},
     estimates: {},
     proposals: {},
-    awards: {},
+    award_handoffs: {},
     projects: {},
     mobilizations: {},
     change_orders: {},

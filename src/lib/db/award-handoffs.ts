@@ -7,7 +7,7 @@
 import * as db from './json-db'
 import type { AwardHandoff } from '@/types/commercial'
 
-const COLLECTION = 'awards' as const
+const COLLECTION = 'award_handoffs' as const
 
 /** Generate a human-readable reference ID: AWD-0001 through AWD-9999 */
 export function generateReferenceId(): string {
