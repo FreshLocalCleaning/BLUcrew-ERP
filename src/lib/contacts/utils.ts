@@ -26,6 +26,12 @@ const ROLE_LAYER_MAP: Record<string, ContactLayer> = {
   'svp': 'exec_owner_rep',
   'evp': 'exec_owner_rep',
   'managing director': 'exec_owner_rep',
+  'owner': 'exec_owner_rep',
+  'exec/owner rep': 'exec_owner_rep',
+  'vp ops': 'exec_owner_rep',
+  'vp operations': 'exec_owner_rep',
+  'dir construction': 'exec_owner_rep',
+  'dir': 'exec_owner_rep',
 
   // PM/Super/Field Lead (Layer 2)
   'pm': 'pm_super_field',
@@ -40,13 +46,14 @@ const ROLE_LAYER_MAP: Record<string, ContactLayer> = {
   'foreman': 'pm_super_field',
   'site manager': 'pm_super_field',
 
-  // Estimator/Precon (Layer 2)
-  'estimator': 'estimator_precon',
-  'precon': 'estimator_precon',
-  'preconstruction': 'estimator_precon',
-  'precon manager': 'estimator_precon',
-  'chief estimator': 'estimator_precon',
-  'senior estimator': 'estimator_precon',
+  // Estimator/Precon (Layer 2 — maps to pm_super_field per business rule)
+  'estimator': 'pm_super_field',
+  'precon': 'pm_super_field',
+  'preconstruction': 'pm_super_field',
+  'precon manager': 'pm_super_field',
+  'chief estimator': 'pm_super_field',
+  'senior estimator': 'pm_super_field',
+  'preconstruction manager': 'pm_super_field',
 
   // Coordinator/Admin (Layer 1)
   'coordinator': 'coordinator_admin',
@@ -69,19 +76,31 @@ const ROLE_LAYER_MAP: Record<string, ContactLayer> = {
 /**
  * Given a role_type string, infer the contact layer.
  * Uses fuzzy matching: normalizes the input and checks against known patterns.
+ * Prioritizes longer key matches to avoid false positives (e.g. "ap" inside "captain").
  * Returns undefined if no match is found.
  */
 export function roleToLayer(roleType: string): ContactLayer | undefined {
   const normalized = roleType.trim().toLowerCase()
 
-  // Direct match
+  // Direct match first
   if (ROLE_LAYER_MAP[normalized]) {
     return ROLE_LAYER_MAP[normalized]
   }
 
-  // Check if any key is contained in the normalized role
-  for (const [key, layer] of Object.entries(ROLE_LAYER_MAP)) {
-    if (normalized.includes(key)) {
+  // Sort keys by length descending so longer (more specific) keys match first
+  const sortedEntries = Object.entries(ROLE_LAYER_MAP).sort(
+    (a, b) => b[0].length - a[0].length,
+  )
+
+  // Check if any key is contained in the normalized role (word-boundary aware for short keys)
+  for (const [key, layer] of sortedEntries) {
+    if (key.length <= 2) {
+      // For very short keys (ap, pm, ar, vp), require word boundary match
+      const regex = new RegExp(`\\b${key}\\b`)
+      if (regex.test(normalized)) {
+        return layer
+      }
+    } else if (normalized.includes(key)) {
       return layer
     }
   }

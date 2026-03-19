@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { roleToLayer } from '@/lib/contacts/utils'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -139,6 +140,7 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
     phone: contact.phone ?? '',
     role_type: contact.role_type ?? '',
     notes: contact.notes ?? '',
+    owner_name: contact.owner_name ?? '',
   })
   const [savingEdit, setSavingEdit] = useState(false)
 
@@ -269,9 +271,26 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
                 <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Role Type</label>
                 <input
                   value={editData.role_type}
-                  onChange={(e) => setEditData(prev => ({ ...prev, role_type: e.target.value }))}
+                  onChange={(e) => {
+                    const newRoleType = e.target.value
+                    setEditData(prev => ({ ...prev, role_type: newRoleType }))
+                  }}
                   className={inputClass}
                   placeholder="e.g. Senior PM"
+                />
+                {editData.role_type && roleToLayer(editData.role_type) && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Auto-mapped layer: {CONTACT_LAYER_LABELS[roleToLayer(editData.role_type)!]}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">BLU Crew Owner</label>
+                <input
+                  value={editData.owner_name}
+                  onChange={(e) => setEditData(prev => ({ ...prev, owner_name: e.target.value }))}
+                  className={inputClass}
+                  placeholder="e.g. Antonio, Cullen"
                 />
               </div>
               <div className="sm:col-span-2">
@@ -309,6 +328,9 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
               )}
               {contact.preferred_channel && (
                 <DetailItem icon={MessageSquare} label="Preferred Channel" value={CONTACT_PREFERRED_CHANNEL_LABELS[contact.preferred_channel]} />
+              )}
+              {contact.owner_name && (
+                <DetailItem icon={User} label="BLU Crew Owner" value={contact.owner_name} />
               )}
             </div>
           )}
@@ -459,6 +481,7 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
               phone: contact.phone ?? '',
               role_type: contact.role_type ?? '',
               notes: contact.notes ?? '',
+              owner_name: contact.owner_name ?? '',
             })
           }}
           className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"

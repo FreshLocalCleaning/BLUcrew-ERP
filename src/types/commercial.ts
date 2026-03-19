@@ -282,6 +282,8 @@ export interface Contact extends BaseEntity {
   last_touch_date?: string
   /** Touch count */
   touch_count: number
+  /** BLU Crew relationship owner name (e.g. "Antonio", "Cullen") */
+  owner_name?: string
 }
 
 // ---------------------------------------------------------------------------

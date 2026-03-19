@@ -5,6 +5,7 @@ import * as contactDb from '@/lib/db/contacts'
 import { getClient, updateClient } from '@/lib/db/clients'
 import type { Contact } from '@/types/commercial'
 import type { ActionResult } from '@/actions/client'
+import { roleToLayer } from '@/lib/contacts/utils'
 
 export async function createContactAction(
   formData: Record<string, unknown>,
@@ -23,9 +24,18 @@ export async function createContactAction(
     return { success: false, error: 'Client not found' }
   }
 
+  // Server-side enforcement: auto-map role_type → layer
+  const data = { ...parsed.data }
+  if (data.role_type) {
+    const inferredLayer = roleToLayer(data.role_type)
+    if (inferredLayer) {
+      data.layer = inferredLayer
+    }
+  }
+
   const contact = contactDb.createContact(
     {
-      ...parsed.data,
+      ...data,
       client_name: client.name,
       last_touch_date: new Date().toISOString(),
     } as Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by' | 'archive_state' | 'reference_id' | 'touch_count'>,
@@ -56,6 +66,15 @@ export async function updateContactAction(
   }
 
   const { id, ...changes } = parsed.data
+
+  // Server-side enforcement: auto-map role_type → layer on update
+  if (changes.role_type) {
+    const inferredLayer = roleToLayer(changes.role_type)
+    if (inferredLayer) {
+      changes.layer = inferredLayer
+    }
+  }
+
   const contact = contactDb.updateContact(id, changes, 'system')
   return { success: true, data: contact }
 }
