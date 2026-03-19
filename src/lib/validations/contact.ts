@@ -49,6 +49,7 @@ export const createContactSchema = z.object({
   pain_points: z.string().max(2000).optional(),
   notes: z.string().max(5000).optional(),
   next_step: z.string().max(500).optional(),
+  next_step_due_date: z.string().optional(),
   owner_name: z.string().max(200).optional(),
 })
 

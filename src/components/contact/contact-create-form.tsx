@@ -281,6 +281,25 @@ export function ContactCreateForm({ clients, preselectedClientId, preselectedCli
               className={inputClass}
             />
           </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-foreground">Next Step</label>
+              <input
+                {...register('next_step')}
+                type="text"
+                placeholder="e.g. Send intro email, Schedule lunch"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-foreground">Next Step Due Date</label>
+              <input
+                {...register('next_step_due_date')}
+                type="date"
+                className={inputClass}
+              />
+            </div>
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
             <textarea

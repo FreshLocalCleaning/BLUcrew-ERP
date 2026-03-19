@@ -20,8 +20,20 @@ import {
   type ContactInfluence,
   type ContactRelationshipStrength,
 } from '@/types/commercial'
-import { ArrowUpDown, Search, Star, Filter } from 'lucide-react'
+import { ArrowUpDown, Search, Star, Filter, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+/** Return color class based on due date vs today */
+function dueDateColorClass(iso?: string | null): string {
+  if (!iso) return 'text-muted-foreground'
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const due = new Date(iso)
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  if (dueDay < today) return 'text-red-500'
+  if (dueDay.getTime() === today.getTime()) return 'text-amber-500'
+  return 'text-green-500'
+}
 
 const INFLUENCE_COLORS: Record<ContactInfluence, string> = {
   high: 'bg-red-400',
@@ -150,6 +162,29 @@ const columns = [
       </span>
     ),
   }),
+  columnHelper.accessor('next_step_due_date', {
+    header: 'Next Step Due',
+    cell: (info) => {
+      const val = info.getValue()
+      if (!val) return <span className="text-muted-foreground">—</span>
+      const color = dueDateColorClass(val)
+      return (
+        <span className={cn('flex items-center gap-1 text-sm font-medium', color)}>
+          <CalendarClock className="h-3.5 w-3.5" />
+          {new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        </span>
+      )
+    },
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original.next_step_due_date
+      const b = rowB.original.next_step_due_date
+      // Nulls sort last
+      if (!a && !b) return 0
+      if (!a) return 1
+      if (!b) return -1
+      return a.localeCompare(b)
+    },
+  }),
   columnHelper.accessor('touch_count', {
     header: 'Touches',
     cell: (info) => (
@@ -163,7 +198,7 @@ interface ContactTableProps {
 }
 
 export function ContactTable({ contacts }: ContactTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'next_step_due_date', desc: false }])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [championsOnly, setChampionsOnly] = useState(false)
