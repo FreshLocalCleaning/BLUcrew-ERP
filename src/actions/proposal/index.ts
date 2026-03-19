@@ -149,17 +149,19 @@ export async function transitionProposalAction(
     reason ?? `Status changed to ${PROPOSAL_STATUS_LABELS[target_status as ProposalStatus] ?? target_status}`,
   )
 
-  // Side effect: auto-create Award/Handoff stub when accepted
-  // (Award/Handoff entity not yet built — S4. Stub the created_award_id for now.)
+  // Side effect: auto-create Award/Handoff when accepted
   if (target_status === 'accepted' && result.sideEffects.includes('auto_create_award_handoff')) {
-    // TODO S4: Auto-create Award/Handoff record here
-    // For now, log the intent in the audit trail
-    proposalDb.updateProposal(
-      proposal_id,
-      { created_award_id: `STUB_AWARD_${proposal_id}` },
-      actor.id,
-      'Award/Handoff auto-creation stub — will be implemented in S4',
-    )
+    const { createFromAcceptedProposalAction } = await import('@/actions/award-handoff')
+    const awardResult = await createFromAcceptedProposalAction(proposal_id)
+    if (!awardResult.success) {
+      // Log failure but don't block the proposal acceptance
+      proposalDb.updateProposal(
+        proposal_id,
+        { created_award_id: `FAILED_${proposal_id}` },
+        actor.id,
+        `Award/Handoff auto-creation failed: ${awardResult.error}`,
+      )
+    }
   }
 
   return { success: true, data: updated }

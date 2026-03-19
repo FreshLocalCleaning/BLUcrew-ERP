@@ -11,6 +11,8 @@ import type { ProjectSignalState } from '@/lib/state-machines/project-signal'
 import type { PursuitStage } from '@/lib/state-machines/pursuit'
 import type { EstimateStatus } from '@/lib/state-machines/estimate'
 import type { ProposalStatus } from '@/lib/state-machines/proposal'
+import type { AwardHandoffState } from '@/lib/state-machines/award-handoff'
+import type { ProjectState } from '@/lib/state-machines/project'
 
 // ---------------------------------------------------------------------------
 // Client enums
@@ -640,4 +642,89 @@ export interface Proposal extends BaseEntity {
   external_notes: string | null
   /** Award/Handoff ID created from acceptance (set by side effect) */
   created_award_id: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Award/Handoff sub-types (ERP-12 Table 3 R8/R9, ERP-13)
+// ---------------------------------------------------------------------------
+
+/** A single compliance document in the compliance tracker */
+export interface ComplianceDocItem {
+  doc_name: string
+  required: boolean
+  status: 'pending' | 'received' | 'waived'
+  received_date: string | null
+  notes: string | null
+}
+
+/** A startup blocker tracked on an Award/Handoff */
+export interface StartupBlockerItem {
+  blocker: string
+  owner: string
+  status: 'open' | 'resolved'
+  resolved_date: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Award/Handoff interface (ERP-12 Table 3 R8, ERP-13)
+// ---------------------------------------------------------------------------
+
+export interface AwardHandoff extends BaseEntity {
+  /** Human-readable reference ID: AWD-XXXX */
+  reference_id: string
+  /** Current lifecycle state */
+  status: AwardHandoffState
+  /** Linked proposal ID (required — auto-created from accepted proposal) */
+  linked_proposal_id: string
+  /** Linked pursuit ID (denormalized) */
+  linked_pursuit_id: string
+  /** Linked estimate ID (denormalized) */
+  linked_estimate_id: string
+  /** Linked client ID (denormalized) */
+  linked_client_id: string
+  /** Project name (denormalized) */
+  project_name: string
+  /** Frozen copy of estimate pricing summary, scope, and assumptions at acceptance */
+  accepted_baseline_snapshot: Record<string, unknown>
+  /** Array of compliance document tracking items */
+  compliance_tracker: ComplianceDocItem[]
+  /** Array of startup blocker items */
+  startup_blockers: StartupBlockerItem[]
+  /** Teams handoff post URL */
+  teams_handoff_post_url: string | null
+  /** PM who claimed this handoff */
+  pm_claim_user_id: string | null
+  /** When the PM claimed this handoff (ISO string) */
+  pm_claim_timestamp: string | null
+  /** Project ID created when closed_to_ops (populated by side effect) */
+  created_project_id: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Project interface (ERP-12 Table 3 R11, ERP-13, ERP-16)
+// ---------------------------------------------------------------------------
+
+export interface Project extends BaseEntity {
+  /** Human-readable reference ID: PRJ-XXXX */
+  reference_id: string
+  /** Current lifecycle state */
+  status: ProjectState
+  /** Linked Award/Handoff ID (required — auto-created from closed_to_ops) */
+  linked_award_handoff_id: string
+  /** Linked client ID (denormalized) */
+  linked_client_id: string
+  /** Project name (denormalized) */
+  project_name: string
+  /** PM owner user ID */
+  pm_owner_id: string
+  /** Frozen commercial baseline snapshot (copied from award) */
+  commercial_baseline_snapshot: Record<string, unknown>
+  /** Client-facing stage names and forecast */
+  client_stage_map: Record<string, unknown> | null
+  /** Target turnover date (ISO string) */
+  target_turnover_date: string | null
+  /** Billing references */
+  billing_references: Record<string, unknown> | null
+  /** Number of active change orders */
+  active_change_order_count: number
 }
