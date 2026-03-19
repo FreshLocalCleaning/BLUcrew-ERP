@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react'
 import { getProject } from '@/lib/db/projects'
 import { getAwardHandoff } from '@/lib/db/award-handoffs'
 import { getClient } from '@/lib/db/clients'
+import { listMobilizationsByProject } from '@/lib/db/mobilizations'
 import { getAuditLog } from '@/lib/db/json-db'
 import { ProjectDetail } from '@/components/project/project-detail'
 import {
@@ -15,6 +16,7 @@ import {
   seedProposals,
   seedAwardHandoffs,
   seedProjects,
+  seedMobilizations,
 } from '@/lib/db/seed'
 
 interface ProjectDetailPageProps {
@@ -32,6 +34,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   seedProposals()
   seedAwardHandoffs()
   seedProjects()
+  seedMobilizations()
 
   const project = getProject(id)
   if (!project) {
@@ -40,6 +43,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
   const awardHandoff = getAwardHandoff(project.linked_award_handoff_id)
   const client = getClient(project.linked_client_id)
+  const mobilizations = listMobilizationsByProject(id)
   const auditLog = getAuditLog('projects', id)
 
   return (
@@ -75,7 +79,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </p>
       </div>
 
-      <ProjectDetail project={project} auditLog={auditLog} />
+      <ProjectDetail project={project} auditLog={auditLog} mobilizations={mobilizations} />
     </div>
   )
 }
