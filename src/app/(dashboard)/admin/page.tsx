@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plug, Settings, Shield } from 'lucide-react'
+import { Plug, Shield, ClipboardCheck } from 'lucide-react'
 
 const ADMIN_SECTIONS = [
   {
@@ -7,6 +7,12 @@ const ADMIN_SECTIONS = [
     description: 'Monitor and manage external system events — SharePoint, Teams, Jobber, QuickBooks, Gusto, Outlook',
     href: '/admin/integrations',
     icon: Plug,
+  },
+  {
+    label: 'Cutover Readiness',
+    description: 'Go-live gate verification, migration wave status, and system health checks per ERP-19',
+    href: '/admin/cutover',
+    icon: ClipboardCheck,
   },
 ]
 
