@@ -9,6 +9,8 @@ import type { BaseEntity } from '@/lib/db/json-db'
 import type { ClientState } from '@/lib/state-machines/client'
 import type { ProjectSignalState } from '@/lib/state-machines/project-signal'
 import type { PursuitStage } from '@/lib/state-machines/pursuit'
+import type { EstimateStatus } from '@/lib/state-machines/estimate'
+import type { ProposalStatus } from '@/lib/state-machines/proposal'
 
 // ---------------------------------------------------------------------------
 // Client enums
@@ -460,4 +462,182 @@ export interface Pursuit extends BaseEntity {
   bd_owner_name?: string
   /** No-bid reason (if pursuit was no-bid) */
   no_bid_reason?: string
+}
+
+// ---------------------------------------------------------------------------
+// Estimate enums (ERP-12/13 — Priced scope from estimate-ready pursuit)
+// ---------------------------------------------------------------------------
+
+export const ESTIMATE_TIER_LABELS = [
+  '70%',
+  '75%',
+  'Floor',
+  'BLU Standard',
+  'Stretch',
+  'Luxury',
+] as const
+export type EstimateTierLabel = (typeof ESTIMATE_TIER_LABELS)[number]
+
+export const ESTIMATE_TIER_LABEL_MAP: Record<number, string> = {
+  0: '70%',
+  1: '75%',
+  2: 'Floor',
+  3: 'BLU Standard',
+  4: 'Stretch',
+  5: 'Luxury',
+}
+
+// ---------------------------------------------------------------------------
+// Estimate interface (ERP-12 Table 3 R5, ERP-13 Table 11)
+// ---------------------------------------------------------------------------
+
+/** JSON shape for surcharge line items captured from the FLC Estimator. */
+export interface EstimateSurcharge {
+  name: string
+  amount: number
+  type: 'flat' | 'percentage'
+}
+
+/** JSON shape for mobilization cost data captured from the FLC Estimator. */
+export interface EstimateMobilizationCost {
+  distance_miles: number | null
+  trips: number | null
+  base_cost: number | null
+  total: number | null
+}
+
+/** JSON shape for per-stage pricing breakdown captured from the FLC Estimator. */
+export interface EstimateStagePricing {
+  stage_name: string
+  weight: number
+  subtotal: number
+}
+
+/** JSON shape for the full pricing summary captured from the FLC Estimator. */
+export interface EstimatePricingSummary {
+  stage_breakdowns: EstimateStagePricing[]
+  subtotal: number
+  adjustments: number
+  grand_total: number
+}
+
+export interface Estimate extends BaseEntity {
+  /** Human-readable reference ID: EST-XXXX */
+  reference_id: string
+  /** Current lifecycle status */
+  status: EstimateStatus
+  /** Linked pursuit ID (required — must be at estimate_ready) */
+  linked_pursuit_id: string
+  /** Linked client ID (denormalized) */
+  linked_client_id: string
+  /** Linked client name (denormalized) */
+  linked_client_name: string
+  /** Linked pursuit name (denormalized) */
+  linked_pursuit_name: string
+  /** Project name */
+  project_name: string
+  /** Build type from estimator's 26 types */
+  build_type: string | null
+  /** Total square footage */
+  square_footage: number | null
+  /** Number of stages (1-4) */
+  stage_count: number | null
+  /** Which stages are selected */
+  stage_selections: string[]
+  /** Tier index (0-5 → 70%/75%/Floor/BLU Standard/Stretch/Luxury) */
+  tier_index: number | null
+  /** Base rate per SF */
+  base_rate: number | null
+  /** BLU3 rate per SF (if applicable) */
+  blu3_rate: number | null
+  /** Surcharges from estimator */
+  surcharges: EstimateSurcharge[]
+  /** Mobilization cost breakdown */
+  mobilization_cost: EstimateMobilizationCost | null
+  /** Exterior cleaning cost */
+  exterior_cost: number | null
+  /** Window cleaning cost */
+  window_cost: number | null
+  /** Per diem cost */
+  per_diem_cost: number | null
+  /** Labor target in hours */
+  labor_target_hours: number | null
+  /** Assumptions text */
+  assumptions: string | null
+  /** Exclusions text */
+  exclusions: string | null
+  /** AI-generated scope text from estimator */
+  scope_text: string | null
+  /** Full pricing summary from estimator output */
+  pricing_summary: EstimatePricingSummary | null
+  /** QA reviewer user ID */
+  qa_reviewer_id: string | null
+  /** QA reviewer name (denormalized) */
+  qa_reviewer_name: string | null
+  /** QA review notes */
+  qa_notes: string | null
+  /** Version number (starts at 1) */
+  version: number
+  /** If superseded, the ID of the new version */
+  superseded_by_id: string | null
+  /** Full estimator state snapshot for reload/edit */
+  estimator_snapshot: Record<string, unknown> | null
+}
+
+// ---------------------------------------------------------------------------
+// Proposal enums (ERP-13 Table 12)
+// ---------------------------------------------------------------------------
+
+export const PROPOSAL_ACCEPTANCE_METHODS = [
+  'email',
+  'verbal',
+  'signed_document',
+  'purchase_order',
+] as const
+export type ProposalAcceptanceMethod = (typeof PROPOSAL_ACCEPTANCE_METHODS)[number]
+
+export const PROPOSAL_ACCEPTANCE_METHOD_LABELS: Record<ProposalAcceptanceMethod, string> = {
+  email: 'Email',
+  verbal: 'Verbal',
+  signed_document: 'Signed Document',
+  purchase_order: 'Purchase Order',
+}
+
+// ---------------------------------------------------------------------------
+// Proposal interface (ERP-12 Table 3 R6, ERP-13 Table 12)
+// ---------------------------------------------------------------------------
+
+export interface Proposal extends BaseEntity {
+  /** Human-readable reference ID: PRO-XXXX */
+  reference_id: string
+  /** Current lifecycle status */
+  status: ProposalStatus
+  /** Linked estimate ID (required — must be at approved_for_proposal) */
+  linked_estimate_id: string
+  /** Linked pursuit ID (denormalized) */
+  linked_pursuit_id: string
+  /** Linked client ID (denormalized) */
+  linked_client_id: string
+  /** Linked client name (denormalized) */
+  linked_client_name: string
+  /** Project name (denormalized) */
+  project_name: string
+  /** Proposal total value */
+  proposal_value: number
+  /** Version number */
+  version: number
+  /** Date proposal was delivered to client (ISO string) */
+  delivery_date: string | null
+  /** Target date for client decision (ISO string) */
+  decision_target_date: string | null
+  /** Reason for acceptance or rejection */
+  accepted_rejected_reason: string | null
+  /** How acceptance was confirmed */
+  acceptance_confirmation_method: ProposalAcceptanceMethod | null
+  /** Next decision cadence follow-up date (ISO string) */
+  decision_cadence_next_date: string | null
+  /** External-facing notes */
+  external_notes: string | null
+  /** Award/Handoff ID created from acceptance (set by side effect) */
+  created_award_id: string | null
 }

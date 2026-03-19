@@ -4,10 +4,12 @@
  */
 
 import * as db from './json-db'
-import type { Client, Contact, Pursuit, ProjectSignal, ProjectSignalType } from '@/types/commercial'
+import type { Client, Contact, Pursuit, ProjectSignal, ProjectSignalType, Estimate, Proposal, EstimatePricingSummary } from '@/types/commercial'
 import type { ClientState } from '@/lib/state-machines/client'
 import type { ProjectSignalState } from '@/lib/state-machines/project-signal'
 import type { PursuitStage } from '@/lib/state-machines/pursuit'
+import type { EstimateStatus } from '@/lib/state-machines/estimate'
+import type { ProposalStatus } from '@/lib/state-machines/proposal'
 
 // ---------------------------------------------------------------------------
 // Client seeds
@@ -671,11 +673,228 @@ export function seedProjectSignals(): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Estimate seeds (ERP-13 Table 11)
+// ---------------------------------------------------------------------------
+
+interface SeedEstimate {
+  project_name: string
+  pursuit_name: string
+  client_name: string
+  status: EstimateStatus
+  build_type: string
+  square_footage: number
+  tier_index: number
+  stage_count: number
+  pricing_summary: EstimatePricingSummary | null
+  labor_target_hours: number | null
+  assumptions: string | null
+  scope_text: string | null
+  qa_reviewer_id: string | null
+  qa_reviewer_name: string | null
+}
+
+const SEED_ESTIMATES: SeedEstimate[] = [
+  {
+    project_name: 'Crunch Fitness Lewisville',
+    pursuit_name: 'Crunch Fitness Lewisville',
+    client_name: 'Summit Peak Builders',
+    status: 'approved_for_proposal',
+    build_type: 'gym_fitness',
+    square_footage: 32500,
+    tier_index: 3, // BLU Standard
+    stage_count: 3,
+    pricing_summary: {
+      stage_breakdowns: [
+        { stage_name: 'Rough Clean', weight: 0.35, subtotal: 8137.50 },
+        { stage_name: 'Final Clean', weight: 0.45, subtotal: 10462.50 },
+        { stage_name: 'Punch / Touch-Up', weight: 0.20, subtotal: 4650.00 },
+      ],
+      subtotal: 23250.00,
+      adjustments: 1750.00,
+      grand_total: 25000.00,
+    },
+    labor_target_hours: 312,
+    assumptions: 'Standard gym build-out. Includes rubber flooring, mirrors, and equipment area. Access during normal business hours.',
+    scope_text: 'Post-construction cleaning for 32,500 SF Crunch Fitness facility. Three-stage approach: rough clean, final clean, and punch/touch-up.',
+    qa_reviewer_id: 'antonio',
+    qa_reviewer_name: 'Antonio (Leadership)',
+  },
+  {
+    project_name: 'Data Center Garland Phase 2',
+    pursuit_name: 'Data Center Garland Phase 2',
+    client_name: 'Balfour Beatty',
+    status: 'draft',
+    build_type: 'data_center',
+    square_footage: 85000,
+    tier_index: 4, // Stretch
+    stage_count: 4,
+    pricing_summary: null,
+    labor_target_hours: null,
+    assumptions: null,
+    scope_text: null,
+    qa_reviewer_id: null,
+    qa_reviewer_name: null,
+  },
+]
+
+export function seedEstimates(): void {
+  const existing = db.list('estimates')
+  if (existing.length > 0) {
+    return
+  }
+
+  seedClients()
+  seedContacts()
+  seedProjectSignals()
+  seedPursuits()
+
+  const clients = db.list<Client>('clients')
+  const clientByName = new Map(clients.map((c) => [c.name, c]))
+  const pursuits = db.list<Pursuit>('pursuits')
+
+  for (let i = 0; i < SEED_ESTIMATES.length; i++) {
+    const seed = SEED_ESTIMATES[i]!
+    const refNum = String(i + 1).padStart(4, '0')
+    const client = clientByName.get(seed.client_name)
+    if (!client) continue
+
+    const pursuit = pursuits.find(
+      (p) => p.project_name === seed.pursuit_name && p.client_id === client.id,
+    )
+    if (!pursuit) continue
+
+    db.create<Estimate>(
+      'estimates',
+      {
+        reference_id: `EST-${refNum}`,
+        status: seed.status,
+        linked_pursuit_id: pursuit.id,
+        linked_client_id: client.id,
+        linked_client_name: seed.client_name,
+        linked_pursuit_name: seed.pursuit_name,
+        project_name: seed.project_name,
+        build_type: seed.build_type,
+        square_footage: seed.square_footage,
+        stage_count: seed.stage_count,
+        stage_selections: [],
+        tier_index: seed.tier_index,
+        base_rate: null,
+        blu3_rate: null,
+        surcharges: [],
+        mobilization_cost: null,
+        exterior_cost: null,
+        window_cost: null,
+        per_diem_cost: null,
+        labor_target_hours: seed.labor_target_hours,
+        assumptions: seed.assumptions,
+        exclusions: null,
+        scope_text: seed.scope_text,
+        pricing_summary: seed.pricing_summary,
+        qa_reviewer_id: seed.qa_reviewer_id,
+        qa_reviewer_name: seed.qa_reviewer_name,
+        qa_notes: null,
+        version: 1,
+        superseded_by_id: null,
+        estimator_snapshot: null,
+        owner: client.owner ?? 'system-seed',
+      } as Omit<Estimate, db.AutoGeneratedKeys>,
+      'system-seed',
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Proposal seeds (ERP-13 Table 12)
+// ---------------------------------------------------------------------------
+
+interface SeedProposal {
+  project_name: string
+  estimate_project_name: string
+  client_name: string
+  status: ProposalStatus
+  proposal_value: number
+  delivery_date: string
+  decision_target_date: string | null
+  acceptance_confirmation_method: string | null
+  accepted_rejected_reason: string | null
+}
+
+const SEED_PROPOSALS: SeedProposal[] = [
+  {
+    project_name: 'Crunch Fitness Lewisville',
+    estimate_project_name: 'Crunch Fitness Lewisville',
+    client_name: 'Summit Peak Builders',
+    status: 'accepted',
+    proposal_value: 25000.00,
+    delivery_date: '2026-03-10',
+    decision_target_date: '2026-03-20',
+    acceptance_confirmation_method: 'email',
+    accepted_rejected_reason: null,
+  },
+]
+
+export function seedProposals(): void {
+  const existing = db.list('proposals')
+  if (existing.length > 0) {
+    return
+  }
+
+  seedEstimates()
+
+  const clients = db.list<Client>('clients')
+  const clientByName = new Map(clients.map((c) => [c.name, c]))
+  const estimates = db.list<Estimate>('estimates')
+  const pursuits = db.list<Pursuit>('pursuits')
+
+  for (let i = 0; i < SEED_PROPOSALS.length; i++) {
+    const seed = SEED_PROPOSALS[i]!
+    const refNum = String(i + 1).padStart(4, '0')
+    const client = clientByName.get(seed.client_name)
+    if (!client) continue
+
+    const estimate = estimates.find(
+      (e) => e.project_name === seed.estimate_project_name && e.linked_client_id === client.id,
+    )
+    if (!estimate) continue
+
+    const pursuit = pursuits.find((p) => p.id === estimate.linked_pursuit_id)
+
+    db.create<Proposal>(
+      'proposals',
+      {
+        reference_id: `PRO-${refNum}`,
+        status: seed.status,
+        linked_estimate_id: estimate.id,
+        linked_pursuit_id: estimate.linked_pursuit_id,
+        linked_client_id: client.id,
+        linked_client_name: seed.client_name,
+        project_name: seed.project_name,
+        proposal_value: seed.proposal_value,
+        version: 1,
+        delivery_date: seed.delivery_date,
+        decision_target_date: seed.decision_target_date,
+        accepted_rejected_reason: seed.accepted_rejected_reason,
+        acceptance_confirmation_method: seed.acceptance_confirmation_method,
+        decision_cadence_next_date: null,
+        external_notes: null,
+        created_award_id: seed.status === 'accepted' ? `STUB_AWARD_PRO-${refNum}` : null,
+        owner: client.owner ?? 'system-seed',
+        next_action: seed.status === 'accepted' ? 'Create Award/Handoff record' : 'Follow up with client',
+        next_action_date: seed.decision_target_date,
+      } as Omit<Proposal, db.AutoGeneratedKeys>,
+      'system-seed',
+    )
+  }
+}
+
 // Allow running directly
 if (typeof require !== 'undefined' && require.main === module) {
   seedClients()
   seedContacts()
   seedProjectSignals()
   seedPursuits()
-  console.log('Seeded 6 clients, 8 contacts, 5 project signals, and 3 pursuits.')
+  seedEstimates()
+  seedProposals()
+  console.log('Seeded 6 clients, 8 contacts, 5 project signals, 3 pursuits, 2 estimates, and 1 proposal.')
 }

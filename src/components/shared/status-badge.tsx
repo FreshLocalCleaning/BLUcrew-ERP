@@ -36,6 +36,17 @@ const STATE_COLORS: Record<string, { bg: string; text: string; dot: string }> = 
   hold: { bg: 'bg-orange-900/50', text: 'text-orange-300', dot: 'bg-orange-400' },
   no_bid: { bg: 'bg-red-900/50', text: 'text-red-300', dot: 'bg-red-400' },
 
+  // Estimate statuses (ERP-13 Table 11)
+  in_build: { bg: 'bg-blue-900/50', text: 'text-blue-300', dot: 'bg-blue-400' },
+  qa_review: { bg: 'bg-yellow-900/50', text: 'text-yellow-300', dot: 'bg-yellow-400' },
+  approved_for_proposal: { bg: 'bg-emerald-900/50', text: 'text-emerald-300', dot: 'bg-emerald-400' },
+  superseded: { bg: 'bg-gray-800', text: 'text-gray-400', dot: 'bg-gray-500' },
+
+  // Proposal statuses (ERP-13 Table 12)
+  delivered: { bg: 'bg-indigo-900/50', text: 'text-indigo-300', dot: 'bg-indigo-400' },
+  in_review: { bg: 'bg-cyan-900/50', text: 'text-cyan-300', dot: 'bg-cyan-400' },
+  accepted: { bg: 'bg-green-900/50', text: 'text-green-300', dot: 'bg-green-400' },
+
   // Generic / pipeline states
   draft: { bg: 'bg-slate-800', text: 'text-slate-300', dot: 'bg-slate-400' },
   in_progress: { bg: 'bg-blue-900/50', text: 'text-blue-300', dot: 'bg-blue-400' },
