@@ -8,6 +8,7 @@ import {
 import * as changeOrderDb from '@/lib/db/change-orders'
 import * as projectDb from '@/lib/db/projects'
 import { validateTransition } from '@/lib/state-machines/engine'
+import { dispatchEvent } from '@/lib/integrations/event-bus'
 import {
   changeOrderStateMachine,
   CHANGE_ORDER_STATE_LABELS,
@@ -83,7 +84,11 @@ export async function updateChangeOrderFieldsAction(
 
   const { id, ...changes } = parsed.data
   const actor = getCurrentActor()
-  const updated = changeOrderDb.updateChangeOrder(id, changes, actor.id)
+  const updated = changeOrderDb.updateChangeOrder(
+    id,
+    changes as Partial<Omit<ChangeOrder, keyof import('@/lib/db/json-db').BaseEntity>>,
+    actor.id,
+  )
   return { success: true, data: updated }
 }
 
@@ -143,6 +148,59 @@ export async function transitionChangeOrderAction(
     actor.id,
     `Active CO count updated to ${activeCount}`,
   )
+
+  return { success: true, data: updated }
+}
+
+/** Send a draft CO to estimating: transitions draft → internal_review and dispatches notification. */
+export async function sendToEstimatingAction(
+  input: { change_order_id: string },
+): Promise<ActionResult<ChangeOrder>> {
+  const actor = getCurrentActor()
+  const changeOrder = changeOrderDb.getChangeOrder(input.change_order_id)
+  if (!changeOrder) {
+    return { success: false, error: 'Change order not found' }
+  }
+
+  if (changeOrder.status !== 'draft') {
+    return { success: false, error: `Cannot send to estimating — CO is in "${changeOrder.status}", must be in "draft".` }
+  }
+
+  // Validate transition
+  const result = validateTransition(changeOrderStateMachine, {
+    currentState: changeOrder.status,
+    targetState: 'internal_review',
+    entity: { ...changeOrder } as Record<string, unknown>,
+    actorRoles: actor.roles,
+    reason: 'Sent to Estimating for pricing',
+    approvalGranted: true,
+  })
+
+  if (!result.allowed) {
+    return { success: false, error: result.errors.join(' ') }
+  }
+
+  const updated = changeOrderDb.updateChangeOrder(
+    input.change_order_id,
+    { status: 'internal_review' as ChangeOrderState },
+    actor.id,
+    'Sent to Estimating for pricing',
+  )
+
+  // Dispatch integration event
+  dispatchEvent({
+    event_type: 'change_order.sent_to_estimating.v1',
+    source_entity: 'change_orders',
+    source_id: input.change_order_id,
+    target_system: 'teams',
+    payload: {
+      reference_id: changeOrder.reference_id,
+      scope_delta: changeOrder.scope_delta,
+      linked_project_id: changeOrder.linked_project_id,
+      linked_client_id: changeOrder.linked_client_id,
+      fact_packet_by: changeOrder.fact_packet_by,
+    },
+  })
 
   return { success: true, data: updated }
 }
