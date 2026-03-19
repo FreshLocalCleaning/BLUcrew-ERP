@@ -4,8 +4,9 @@
  */
 
 import * as db from './json-db'
-import type { Client, Contact } from '@/types/commercial'
+import type { Client, Contact, Pursuit } from '@/types/commercial'
 import type { ClientState } from '@/lib/state-machines/client'
+import type { PursuitStage } from '@/lib/state-machines/pursuit'
 
 // ---------------------------------------------------------------------------
 // Client seeds
@@ -358,9 +359,135 @@ export function seedContacts(): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Pursuit seeds (CORE-02)
+// ---------------------------------------------------------------------------
+
+interface SeedPursuit {
+  project_name: string
+  client_name: string // matched to client by name
+  primary_contact_name?: string
+  stage: PursuitStage
+  signal_type: Pursuit['signal_type']
+  client_type: Pursuit['client_type']
+  build_type: Pursuit['build_type']
+  location: string
+  approx_sqft: number
+  next_action?: string
+  next_action_date?: string
+  notes?: string
+}
+
+const SEED_PURSUITS: SeedPursuit[] = [
+  {
+    project_name: 'Crunch Fitness Lewisville',
+    client_name: 'Summit Peak Builders',
+    primary_contact_name: 'Megan Torres',
+    stage: 'estimate_ready',
+    signal_type: 'referral',
+    client_type: 'gc',
+    build_type: 'gym_fitness',
+    location: 'Lewisville, TX',
+    approx_sqft: 32500,
+    next_action: 'Send estimate to GC',
+    next_action_date: '2026-03-25',
+    notes: 'New Crunch Fitness build-out. Full post-construction scope including polish, detail clean, and punch list support.',
+  },
+  {
+    project_name: 'Data Center Garland Phase 2',
+    client_name: 'Balfour Beatty',
+    primary_contact_name: 'David Park',
+    stage: 'qualification_underway',
+    signal_type: 'outreach',
+    client_type: 'gc',
+    build_type: 'data_center',
+    location: 'Garland, TX',
+    approx_sqft: 85000,
+    next_action: 'Schedule site walk with PM',
+    next_action_date: '2026-03-28',
+    notes: 'Phase 2 expansion of existing data center campus. Cleanroom protocols required.',
+  },
+  {
+    project_name: 'Marriott TI Frisco',
+    client_name: "Rogers-O'Brien",
+    primary_contact_name: 'Jake Moreno',
+    stage: 'project_signal_received',
+    signal_type: 'repeat_client',
+    client_type: 'gc',
+    build_type: 'hospitality',
+    location: 'Frisco, TX',
+    approx_sqft: 18000,
+    next_action: 'Review RFP documents',
+    next_action_date: '2026-04-01',
+    notes: 'Tenant improvement project at existing Marriott property. 120-room renovation scope.',
+  },
+]
+
+export function seedPursuits(): void {
+  const existingPursuits = db.list('pursuits')
+  if (existingPursuits.length > 0) {
+    return // Already seeded
+  }
+
+  // Ensure clients and contacts exist first
+  seedClients()
+  seedContacts()
+
+  // Build lookups
+  const clients = db.list<Client>('clients')
+  const clientByName = new Map(clients.map((c) => [c.name, c]))
+  const contacts = db.list<Contact>('contacts')
+
+  for (let i = 0; i < SEED_PURSUITS.length; i++) {
+    const seed = SEED_PURSUITS[i]!
+    const refNum = String(i + 1).padStart(4, '0')
+    const client = clientByName.get(seed.client_name)
+
+    if (!client) continue
+
+    // Find primary contact if specified
+    let primaryContactId: string | undefined
+    let primaryContactFullName: string | undefined
+    if (seed.primary_contact_name) {
+      const contact = contacts.find(
+        (c) =>
+          c.client_id === client.id &&
+          `${c.first_name} ${c.last_name}` === seed.primary_contact_name,
+      )
+      if (contact) {
+        primaryContactId = contact.id
+        primaryContactFullName = `${contact.first_name} ${contact.last_name}`
+      }
+    }
+
+    db.create<Pursuit>(
+      'pursuits',
+      {
+        reference_id: `PUR-${refNum}`,
+        project_name: seed.project_name,
+        client_id: client.id,
+        client_name: seed.client_name,
+        primary_contact_id: primaryContactId,
+        primary_contact_name: primaryContactFullName,
+        signal_type: seed.signal_type,
+        client_type: seed.client_type,
+        build_type: seed.build_type,
+        location: seed.location,
+        approx_sqft: seed.approx_sqft,
+        stage: seed.stage,
+        next_action: seed.next_action,
+        next_action_date: seed.next_action_date,
+        notes: seed.notes,
+      } as Omit<Pursuit, keyof db.BaseEntity>,
+      'system-seed',
+    )
+  }
+}
+
 // Allow running directly
 if (typeof require !== 'undefined' && require.main === module) {
   seedClients()
   seedContacts()
-  console.log('Seeded 6 clients and 8 contacts.')
+  seedPursuits()
+  console.log('Seeded 6 clients, 8 contacts, and 3 pursuits.')
 }

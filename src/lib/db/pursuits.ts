@@ -1,0 +1,77 @@
+/**
+ * Pursuit Data Access Layer
+ *
+ * All pursuit reads/writes go through these functions.
+ */
+
+import * as db from './json-db'
+import type { Pursuit } from '@/types/commercial'
+
+const COLLECTION = 'pursuits' as const
+
+/** Generate a human-readable reference ID: PUR-0001 through PUR-9999 */
+export function generateReferenceId(): string {
+  const all = db.list<Pursuit>(COLLECTION)
+  const maxNum = all.reduce((max, p) => {
+    const match = p.reference_id.match(/^PUR-(\d+)$/)
+    const num = match ? parseInt(match[1]!, 10) : 0
+    return Math.max(max, num)
+  }, 0)
+  return `PUR-${String(maxNum + 1).padStart(4, '0')}`
+}
+
+/** Get a single pursuit by ID. */
+export function getPursuit(id: string): Pursuit | undefined {
+  return db.getById<Pursuit>(COLLECTION, id)
+}
+
+/** List all non-deleted pursuits. */
+export function listPursuits(): Pursuit[] {
+  return db.list<Pursuit>(COLLECTION)
+}
+
+/** List pursuits for a specific client. */
+export function listPursuitsByClient(clientId: string): Pursuit[] {
+  return db.query<Pursuit>(COLLECTION, {
+    client_id: clientId,
+  } as db.QueryFilter<Pursuit>)
+}
+
+/** Create a new pursuit. Generates reference_id and sets initial stage. */
+export function createPursuit(
+  data: Omit<Pursuit, keyof db.BaseEntity | 'reference_id' | 'stage'> & {
+    stage?: Pursuit['stage']
+  },
+  actorId: string,
+): Pursuit {
+  const reference_id = generateReferenceId()
+  return db.create<Pursuit>(
+    COLLECTION,
+    {
+      ...data,
+      reference_id,
+      stage: data.stage ?? 'project_signal_received',
+    } as Omit<Pursuit, keyof db.BaseEntity>,
+    actorId,
+  )
+}
+
+/** Update an existing pursuit. */
+export function updatePursuit(
+  id: string,
+  changes: Partial<Omit<Pursuit, keyof db.BaseEntity>>,
+  actorId: string,
+  reason?: string,
+): Pursuit {
+  return db.update<Pursuit>(COLLECTION, id, changes, actorId, reason)
+}
+
+/** Soft-delete a pursuit. */
+export function archivePursuit(id: string, actorId: string, reason: string): void {
+  db.softDelete(COLLECTION, id, actorId, reason)
+}
+
+/** Get audit log for a specific pursuit. */
+export function getPursuitAuditLog(pursuitId: string) {
+  return db.getAuditLog(COLLECTION, pursuitId)
+}

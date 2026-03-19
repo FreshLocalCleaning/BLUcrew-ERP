@@ -7,6 +7,7 @@
 
 import type { BaseEntity } from '@/lib/db/json-db'
 import type { ClientState } from '@/lib/state-machines/client'
+import type { PursuitStage } from '@/lib/state-machines/pursuit'
 
 // ---------------------------------------------------------------------------
 // Client enums
@@ -273,4 +274,114 @@ export interface Contact extends BaseEntity {
   last_touch_date?: string
   /** Touch count */
   touch_count: number
+}
+
+// ---------------------------------------------------------------------------
+// Pursuit enums (CORE-02 Project Pursuit Qualification)
+// ---------------------------------------------------------------------------
+
+export const PURSUIT_SIGNAL_TYPES = [
+  'referral',
+  'trailer',
+  'outreach',
+  'event',
+  'repeat_client',
+  'inbound',
+] as const
+export type PursuitSignalType = (typeof PURSUIT_SIGNAL_TYPES)[number]
+
+export const PURSUIT_SIGNAL_LABELS: Record<PursuitSignalType, string> = {
+  referral: 'Referral',
+  trailer: 'Trailer',
+  outreach: 'Outreach',
+  event: 'Event',
+  repeat_client: 'Repeat Client',
+  inbound: 'Inbound',
+}
+
+export const PURSUIT_CLIENT_TYPES = ['gc', 'owner', 'other'] as const
+export type PursuitClientType = (typeof PURSUIT_CLIENT_TYPES)[number]
+
+export const PURSUIT_CLIENT_TYPE_LABELS: Record<PursuitClientType, string> = {
+  gc: 'GC',
+  owner: 'Owner',
+  other: 'Other',
+}
+
+export const PURSUIT_BUILD_TYPES = [
+  'gym_fitness',
+  'data_center',
+  'hospitality',
+  'medical',
+  'retail',
+  'office',
+  'restaurant',
+  'industrial',
+  'education',
+  'multifamily',
+  'other',
+] as const
+export type PursuitBuildType = (typeof PURSUIT_BUILD_TYPES)[number]
+
+export const PURSUIT_BUILD_TYPE_LABELS: Record<PursuitBuildType, string> = {
+  gym_fitness: 'Gym/Fitness',
+  data_center: 'Data Center',
+  hospitality: 'Hospitality',
+  medical: 'Medical',
+  retail: 'Retail',
+  office: 'Office',
+  restaurant: 'Restaurant',
+  industrial: 'Industrial',
+  education: 'Education',
+  multifamily: 'Multifamily',
+  other: 'Other',
+}
+
+// ---------------------------------------------------------------------------
+// Pursuit interface
+// ---------------------------------------------------------------------------
+
+export interface Pursuit extends BaseEntity {
+  /** Human-readable reference ID: PUR-XXXX */
+  reference_id: string
+  /** Project name */
+  project_name: string
+  /** Client ID */
+  client_id: string
+  /** Client name (denormalized for list views) */
+  client_name: string
+  /** Primary contact ID */
+  primary_contact_id?: string
+  /** Primary contact name (denormalized) */
+  primary_contact_name?: string
+  /** How the signal came in */
+  signal_type?: PursuitSignalType
+  /** Client type for this pursuit */
+  client_type?: PursuitClientType
+  /** Build / project type */
+  build_type?: PursuitBuildType
+  /** Location / address */
+  location?: string
+  /** Approximate square footage */
+  approx_sqft?: number
+  /** Current pursuit stage */
+  stage: PursuitStage
+  /** Projected substantial completion date (ISO string) */
+  projected_substantial_completion?: string
+  /** Target owner walk date (ISO string) */
+  target_owner_walk?: string
+  /** Target opening date (ISO string) */
+  target_opening?: string
+  /** Next action text */
+  next_action?: string
+  /** Next action due date (ISO string) */
+  next_action_date?: string
+  /** General notes */
+  notes?: string
+  /** BD owner user ID */
+  bd_owner_id?: string
+  /** BD owner display name (denormalized) */
+  bd_owner_name?: string
+  /** No-bid reason (if pursuit was no-bid) */
+  no_bid_reason?: string
 }
