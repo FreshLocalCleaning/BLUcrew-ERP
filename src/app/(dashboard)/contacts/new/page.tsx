@@ -1,14 +1,20 @@
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { ContactCreateForm } from '@/components/contact/contact-create-form'
-import { listClients } from '@/lib/db/clients'
+import { listClients, getClient } from '@/lib/db/clients'
 import { seedClients, seedContacts } from '@/lib/db/seed'
 
-export default function NewContactPage() {
+export default function NewContactPage({
+  searchParams,
+}: {
+  searchParams: { client_id?: string }
+}) {
   seedClients()
   seedContacts()
 
   const clients = listClients()
+  const preselectedClientId = searchParams.client_id ?? undefined
+  const preselectedClient = preselectedClientId ? getClient(preselectedClientId) : undefined
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -28,7 +34,11 @@ export default function NewContactPage() {
         </p>
       </div>
 
-      <ContactCreateForm clients={clients} />
+      <ContactCreateForm
+        clients={clients}
+        preselectedClientId={preselectedClientId}
+        preselectedClientName={preselectedClient?.name}
+      />
     </div>
   )
 }

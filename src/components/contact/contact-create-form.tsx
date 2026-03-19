@@ -24,9 +24,11 @@ import { roleToLayer } from '@/lib/contacts/utils'
 
 interface ContactCreateFormProps {
   clients: Client[]
+  preselectedClientId?: string
+  preselectedClientName?: string
 }
 
-export function ContactCreateForm({ clients }: ContactCreateFormProps) {
+export function ContactCreateForm({ clients, preselectedClientId, preselectedClientName }: ContactCreateFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
 
@@ -46,6 +48,8 @@ export function ContactCreateForm({ clients }: ContactCreateFormProps) {
       influence: 'medium',
       relationship_strength: 'new',
       layer: 'pm_super_field',
+      client_id: preselectedClientId ?? '',
+      company: preselectedClientName ?? '',
     },
   })
 

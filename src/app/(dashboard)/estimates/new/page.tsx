@@ -5,7 +5,11 @@ import { listPursuits } from '@/lib/db/pursuits'
 import { listEstimates } from '@/lib/db/estimates'
 import { seedClients, seedContacts, seedProjectSignals, seedPursuits } from '@/lib/db/seed'
 
-export default function NewEstimatePage() {
+export default function NewEstimatePage({
+  searchParams,
+}: {
+  searchParams: { clientId?: string; pursuitId?: string }
+}) {
   // Ensure seed data exists
   seedClients()
   seedContacts()
@@ -25,6 +29,15 @@ export default function NewEstimatePage() {
   const eligiblePursuits = pursuits.filter(
     (p) => p.stage === 'estimate_ready' && !pursuitsWithActiveEstimate.has(p.id),
   )
+
+  // Determine preselection: explicit pursuitId > single eligible pursuit for clientId
+  let preselectedPursuitId = searchParams.pursuitId
+  if (!preselectedPursuitId && searchParams.clientId) {
+    const clientPursuits = eligiblePursuits.filter(p => p.client_id === searchParams.clientId)
+    if (clientPursuits.length === 1) {
+      preselectedPursuitId = clientPursuits[0]!.id
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -46,7 +59,10 @@ export default function NewEstimatePage() {
       </div>
 
       {/* Form */}
-      <EstimateCreateForm eligiblePursuits={eligiblePursuits} />
+      <EstimateCreateForm
+        eligiblePursuits={eligiblePursuits}
+        preselectedPursuitId={preselectedPursuitId}
+      />
     </div>
   )
 }

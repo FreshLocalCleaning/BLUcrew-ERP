@@ -24,12 +24,16 @@ interface PursuitCreateFormProps {
   clients: Client[]
   contacts: Contact[]
   passedSignals: ProjectSignal[]
+  preselectedClientId?: string
 }
 
-export function PursuitCreateForm({ clients, contacts, passedSignals }: PursuitCreateFormProps) {
+export function PursuitCreateForm({ clients, contacts, passedSignals, preselectedClientId }: PursuitCreateFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
-  const [selectedClientId, setSelectedClientId] = useState('')
+
+  // Pre-select client if provided via URL param
+  const preClient = preselectedClientId ? clients.find(c => c.id === preselectedClientId) : undefined
+  const [selectedClientId, setSelectedClientId] = useState(preselectedClientId ?? '')
   const [selectedSignalId, setSelectedSignalId] = useState('')
 
   const {
@@ -42,8 +46,8 @@ export function PursuitCreateForm({ clients, contacts, passedSignals }: PursuitC
     defaultValues: {
       linked_signal_id: '',
       project_name: '',
-      client_id: '',
-      client_name: '',
+      client_id: preselectedClientId ?? '',
+      client_name: preClient?.name ?? '',
       notes: '',
     },
   })

@@ -4,7 +4,11 @@ import { ProposalCreateForm } from '@/components/proposal/proposal-create-form'
 import { listEstimates } from '@/lib/db/estimates'
 import { seedClients, seedContacts, seedProjectSignals, seedPursuits, seedEstimates } from '@/lib/db/seed'
 
-export default function NewProposalPage() {
+export default function NewProposalPage({
+  searchParams,
+}: {
+  searchParams: { clientId?: string; estimateId?: string }
+}) {
   seedClients()
   seedContacts()
   seedProjectSignals()
@@ -13,6 +17,15 @@ export default function NewProposalPage() {
 
   const estimates = listEstimates()
   const eligibleEstimates = estimates.filter((e) => e.status === 'approved_for_proposal')
+
+  // Determine preselection: explicit estimateId > single eligible estimate for clientId
+  let preselectedEstimateId = searchParams.estimateId
+  if (!preselectedEstimateId && searchParams.clientId) {
+    const clientEstimates = eligibleEstimates.filter(e => e.linked_client_id === searchParams.clientId)
+    if (clientEstimates.length === 1) {
+      preselectedEstimateId = clientEstimates[0]!.id
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -31,7 +44,10 @@ export default function NewProposalPage() {
         </p>
       </div>
 
-      <ProposalCreateForm eligibleEstimates={eligibleEstimates} />
+      <ProposalCreateForm
+        eligibleEstimates={eligibleEstimates}
+        preselectedEstimateId={preselectedEstimateId}
+      />
     </div>
   )
 }

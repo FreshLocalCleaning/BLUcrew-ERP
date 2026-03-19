@@ -291,7 +291,7 @@ export function ClientDetail({
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Pursuits ({pursuits.length})</h2>
             <Link
-              href="/pursuits/new"
+              href={`/pursuits/new?clientId=${client.id}`}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <Target className="h-3.5 w-3.5" />
@@ -339,7 +339,7 @@ export function ClientDetail({
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Estimates ({estimates.length})</h2>
             <Link
-              href="/estimates/new"
+              href={`/estimates/new?clientId=${client.id}`}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <Calculator className="h-3.5 w-3.5" />
@@ -383,7 +383,7 @@ export function ClientDetail({
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Proposals ({proposals.length})</h2>
             <Link
-              href="/proposals/new"
+              href={`/proposals/new?clientId=${client.id}`}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <FileText className="h-3.5 w-3.5" />
@@ -570,7 +570,7 @@ export function ClientDetail({
           Add Contact
         </Link>
         <Link
-          href="/pursuits/new"
+          href={`/pursuits/new?clientId=${client.id}`}
           className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
         >
           <Target className="h-4 w-4 text-muted-foreground" />

@@ -13,12 +13,16 @@ import { PURSUIT_STAGE_LABELS } from '@/lib/state-machines/pursuit'
 interface EstimateCreateFormProps {
   /** Only pursuits at estimate_ready with no active estimate */
   eligiblePursuits: Pursuit[]
+  preselectedPursuitId?: string
 }
 
-export function EstimateCreateForm({ eligiblePursuits }: EstimateCreateFormProps) {
+export function EstimateCreateForm({ eligiblePursuits, preselectedPursuitId }: EstimateCreateFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
-  const [selectedPursuitId, setSelectedPursuitId] = useState('')
+
+  // Pre-select pursuit if provided via URL param
+  const prePursuit = preselectedPursuitId ? eligiblePursuits.find(p => p.id === preselectedPursuitId) : undefined
+  const [selectedPursuitId, setSelectedPursuitId] = useState(preselectedPursuitId ?? '')
 
   const {
     register,
@@ -28,11 +32,13 @@ export function EstimateCreateForm({ eligiblePursuits }: EstimateCreateFormProps
   } = useForm<CreateEstimateInput>({
     resolver: zodResolver(createEstimateSchema),
     defaultValues: {
-      linked_pursuit_id: '',
-      linked_client_id: '',
-      linked_client_name: '',
-      linked_pursuit_name: '',
-      project_name: '',
+      linked_pursuit_id: prePursuit?.id ?? '',
+      linked_client_id: prePursuit?.client_id ?? '',
+      linked_client_name: prePursuit?.client_name ?? '',
+      linked_pursuit_name: prePursuit?.project_name ?? '',
+      project_name: prePursuit?.project_name ?? '',
+      build_type: prePursuit?.build_type ?? undefined,
+      square_footage: prePursuit?.approx_sqft ?? undefined,
     },
   })
 
