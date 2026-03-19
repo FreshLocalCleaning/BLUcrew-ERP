@@ -12,6 +12,7 @@ import {
   PROJECT_STATE_LABELS,
 } from '@/lib/state-machines/project'
 import { autoCreateExpansionTaskAction } from '@/actions/expansion-task'
+import { dispatchEvent } from '@/lib/integrations/event-bus'
 import * as changeOrderDb from '@/lib/db/change-orders'
 import type { Project } from '@/types/commercial'
 import type { ProjectState } from '@/lib/state-machines/project'
@@ -96,6 +97,13 @@ export async function transitionProjectAction(
   // Side effect: auto-create expansion task when project reaches operationally_complete
   if (target_status === 'operationally_complete') {
     await autoCreateExpansionTaskAction(project_id)
+    dispatchEvent({
+      event_type: 'project.operationally_closed.v1',
+      source_entity: 'projects',
+      source_id: project_id,
+      target_system: 'internal',
+      payload: { project_name: project.project_name },
+    })
   }
 
   // Side effect: update active_change_order_count
