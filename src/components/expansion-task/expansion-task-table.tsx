@@ -43,9 +43,19 @@ const columns = [
   }),
   columnHelper.accessor('linked_project_id', {
     header: 'Project',
-    cell: (info) => (
-      <span className="text-sm text-foreground">{info.getValue().slice(0, 8)}…</span>
-    ),
+    cell: (info) => {
+      const id = info.getValue()
+      const meta = info.table.options.meta as Record<string, Record<string, string>> | undefined
+      const name = meta?.projectNameMap?.[id] ?? id.slice(0, 8) + '…'
+      return (
+        <Link
+          href={`/projects/${id}`}
+          className="text-sm text-primary hover:underline"
+        >
+          {name}
+        </Link>
+      )
+    },
   }),
   columnHelper.accessor('task_type', {
     header: 'Task Type',
@@ -101,9 +111,10 @@ const columns = [
 
 interface ExpansionTaskTableProps {
   expansionTasks: ExpansionTask[]
+  projectNameMap?: Record<string, string>
 }
 
-export function ExpansionTaskTable({ expansionTasks }: ExpansionTaskTableProps) {
+export function ExpansionTaskTable({ expansionTasks, projectNameMap }: ExpansionTaskTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -118,6 +129,7 @@ export function ExpansionTaskTable({ expansionTasks }: ExpansionTaskTableProps) 
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    meta: { projectNameMap: projectNameMap ?? {} },
   })
 
   return (

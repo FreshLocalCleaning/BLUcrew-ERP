@@ -2,9 +2,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import { getClient } from '@/lib/db/clients'
-import { getAuditLog } from '@/lib/db/json-db'
+import { getAuditLog, query } from '@/lib/db/json-db'
 import { ClientDetail } from '@/components/client/client-detail'
-import { seedClients, seedContacts, seedPursuits } from '@/lib/db/seed'
+import {
+  seedClients, seedContacts, seedProjectSignals, seedPursuits,
+  seedEstimates, seedProposals, seedAwardHandoffs, seedProjects,
+} from '@/lib/db/seed'
+import type { Contact, Pursuit, Estimate, Proposal } from '@/types/commercial'
 
 interface ClientDetailPageProps {
   params: Promise<{ id: string }>
@@ -13,10 +17,14 @@ interface ClientDetailPageProps {
 export default async function ClientDetailPage({ params }: ClientDetailPageProps) {
   const { id } = await params
 
-  // Ensure seed data exists
   seedClients()
   seedContacts()
+  seedProjectSignals()
   seedPursuits()
+  seedEstimates()
+  seedProposals()
+  seedAwardHandoffs()
+  seedProjects()
 
   const client = getClient(id)
   if (!client) {
@@ -24,6 +32,10 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   }
 
   const auditLog = getAuditLog('clients', id)
+  const contacts = query<Contact>('contacts', { client_id: id })
+  const pursuits = query<Pursuit>('pursuits', { client_id: id })
+  const estimates = query<Estimate>('estimates', { linked_client_id: id })
+  const proposals = query<Proposal>('proposals', { linked_client_id: id })
 
   return (
     <div className="space-y-6">
@@ -45,7 +57,14 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
       </div>
 
       {/* Detail component */}
-      <ClientDetail client={client} auditLog={auditLog} />
+      <ClientDetail
+        client={client}
+        auditLog={auditLog}
+        contacts={contacts}
+        pursuits={pursuits}
+        estimates={estimates}
+        proposals={proposals}
+      />
     </div>
   )
 }

@@ -45,20 +45,29 @@ const columns = [
   }),
   columnHelper.accessor('linked_client_id', {
     header: 'Client',
-    cell: (info) => (
-      <Link
-        href={`/clients/${info.getValue()}`}
-        className="text-sm text-primary hover:underline"
-      >
-        {info.getValue()}
-      </Link>
-    ),
+    cell: (info) => {
+      const id = info.getValue()
+      const meta = info.table.options.meta as Record<string, Record<string, string>> | undefined
+      const name = meta?.clientNameMap?.[id] ?? id
+      return (
+        <Link
+          href={`/clients/${id}`}
+          className="text-sm text-primary hover:underline"
+        >
+          {name}
+        </Link>
+      )
+    },
   }),
   columnHelper.accessor('pm_owner_id', {
     header: 'PM',
-    cell: (info) => (
-      <span className="text-sm">{info.getValue() ?? '—'}</span>
-    ),
+    cell: (info) => {
+      const id = info.getValue()
+      if (!id) return <span className="text-sm">—</span>
+      // Show readable PM name
+      const pmNames: Record<string, string> = { cullen: 'Cullen', antonio: 'Antonio', system: 'System' }
+      return <span className="text-sm">{pmNames[id] ?? id}</span>
+    },
   }),
   columnHelper.accessor('status', {
     header: 'Status',
@@ -99,9 +108,10 @@ const columns = [
 
 interface ProjectTableProps {
   projects: Project[]
+  clientNameMap?: Record<string, string>
 }
 
-export function ProjectTable({ projects }: ProjectTableProps) {
+export function ProjectTable({ projects, clientNameMap }: ProjectTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -118,6 +128,7 @@ export function ProjectTable({ projects }: ProjectTableProps) {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    meta: { clientNameMap: clientNameMap ?? {} },
   })
 
   return (

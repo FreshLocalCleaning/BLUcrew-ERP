@@ -18,6 +18,10 @@ import {
 } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
+import type { Contact, Pursuit, Estimate, Proposal } from '@/types/commercial'
+import { PURSUIT_STAGE_LABELS } from '@/lib/state-machines/pursuit'
+import { ESTIMATE_STATUS_LABELS } from '@/lib/state-machines/estimate'
+import { PROPOSAL_STATUS_LABELS } from '@/lib/state-machines/proposal'
 import {
   ArrowLeftRight,
   Pencil,
@@ -29,15 +33,22 @@ import {
   Users,
   Handshake,
   FileText,
+  Calculator,
+  Star,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import Link from 'next/link'
 
 interface ClientDetailProps {
   client: Client
   auditLog: AuditEntry[]
+  contacts?: Contact[]
+  pursuits?: Pursuit[]
+  estimates?: Estimate[]
+  proposals?: Proposal[]
 }
 
-export function ClientDetail({ client: initialClient, auditLog }: ClientDetailProps) {
+export function ClientDetail({ client: initialClient, auditLog, contacts = [], pursuits = [], estimates = [], proposals = [] }: ClientDetailProps) {
   const router = useRouter()
   const [client, setClient] = useState(initialClient)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -152,34 +163,169 @@ export function ClientDetail({ client: initialClient, auditLog }: ClientDetailPr
         {/* Contacts Section */}
         <div className="rounded-lg border border-border bg-card p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Contacts</h2>
-            <button className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <h2 className="text-lg font-semibold text-foreground">Contacts ({contacts.length})</h2>
+            <Link
+              href={`/contacts/new?client_id=${client.id}`}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
               <UserPlus className="h-3.5 w-3.5" />
               Add Contact
-            </button>
+            </Link>
           </div>
-          <div className="mt-4 flex h-24 items-center justify-center rounded-md border border-dashed border-border">
-            <p className="text-sm text-muted-foreground">
-              No contacts yet. Add the first contact for this client.
-            </p>
-          </div>
+          {contacts.length === 0 ? (
+            <div className="mt-4 flex h-24 items-center justify-center rounded-md border border-dashed border-border">
+              <p className="text-sm text-muted-foreground">
+                No contacts yet. Add the first contact for this client.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Title</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Layer</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Influence</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Strength</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Last Touch</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contacts.map(c => (
+                    <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5">
+                          {c.is_champion && <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />}
+                          <Link href={`/contacts/${c.id}`} className="font-medium text-primary hover:underline">
+                            {c.first_name} {c.last_name}
+                          </Link>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{c.title ?? '—'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{c.layer?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) ?? '—'}</td>
+                      <td className="px-3 py-2 capitalize text-muted-foreground">{c.influence}</td>
+                      <td className="px-3 py-2 capitalize text-muted-foreground">{c.relationship_strength}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{c.last_touch_date ? new Date(c.last_touch_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Pursuits Section */}
         <div className="rounded-lg border border-border bg-card p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Pursuits</h2>
-            <button className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <h2 className="text-lg font-semibold text-foreground">Pursuits ({pursuits.length})</h2>
+            <Link
+              href="/pursuits/new"
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
               <Target className="h-3.5 w-3.5" />
               New Pursuit
-            </button>
+            </Link>
           </div>
-          <div className="mt-4 flex h-24 items-center justify-center rounded-md border border-dashed border-border">
-            <p className="text-sm text-muted-foreground">
-              No pursuits yet. Create a pursuit to track opportunities.
-            </p>
-          </div>
+          {pursuits.length === 0 ? (
+            <div className="mt-4 flex h-24 items-center justify-center rounded-md border border-dashed border-border">
+              <p className="text-sm text-muted-foreground">
+                No pursuits yet. Create a pursuit to track opportunities.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Project</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Stage</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Build Type</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">SF</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Next Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pursuits.map(p => (
+                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="px-3 py-2">
+                        <Link href={`/pursuits/${p.id}`} className="font-medium text-primary hover:underline">{p.project_name}</Link>
+                      </td>
+                      <td className="px-3 py-2"><StatusBadge state={p.stage} label={PURSUIT_STAGE_LABELS[p.stage]} /></td>
+                      <td className="px-3 py-2 text-muted-foreground">{p.build_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) ?? '—'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{p.approx_sqft?.toLocaleString() ?? '—'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{p.next_action ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+
+        {/* Estimates Section */}
+        {estimates.length > 0 && (
+          <div className="rounded-lg border border-border bg-card p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Estimates ({estimates.length})</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Project</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Ref ID</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Status</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {estimates.map(e => (
+                    <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="px-3 py-2">
+                        <Link href={`/estimates/${e.id}`} className="font-medium text-primary hover:underline">{e.project_name}</Link>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{e.reference_id}</td>
+                      <td className="px-3 py-2"><StatusBadge state={e.status} label={ESTIMATE_STATUS_LABELS[e.status]} /></td>
+                      <td className="px-3 py-2 text-muted-foreground">{e.pricing_summary?.grand_total ? `$${e.pricing_summary.grand_total.toLocaleString()}` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Proposals Section */}
+        {proposals.length > 0 && (
+          <div className="rounded-lg border border-border bg-card p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Proposals ({proposals.length})</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Project</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Ref ID</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Status</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Value</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase text-muted-foreground">Delivered</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proposals.map(p => (
+                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="px-3 py-2">
+                        <Link href={`/proposals/${p.id}`} className="font-medium text-primary hover:underline">{p.project_name}</Link>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{p.reference_id}</td>
+                      <td className="px-3 py-2"><StatusBadge state={p.status} label={PROPOSAL_STATUS_LABELS[p.status]} /></td>
+                      <td className="px-3 py-2 text-muted-foreground">{p.proposal_value ? `$${p.proposal_value.toLocaleString()}` : '—'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{p.delivery_date ? new Date(p.delivery_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Activity Timeline */}
         <div className="rounded-lg border border-border bg-card p-6">
@@ -249,18 +395,20 @@ export function ClientDetail({ client: initialClient, auditLog }: ClientDetailPr
           <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
           Change Status
         </button>
-        <button className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50">
-          <Pencil className="h-4 w-4 text-muted-foreground" />
-          Edit Client
-        </button>
-        <button className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50">
+        <Link
+          href={`/contacts/new?client_id=${client.id}`}
+          className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+        >
           <UserPlus className="h-4 w-4 text-muted-foreground" />
           Add Contact
-        </button>
-        <button className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50">
+        </Link>
+        <Link
+          href="/pursuits/new"
+          className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+        >
           <Target className="h-4 w-4 text-muted-foreground" />
           Create Pursuit
-        </button>
+        </Link>
       </div>
 
       {/* Status Change Modal */}

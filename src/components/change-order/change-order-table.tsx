@@ -44,9 +44,19 @@ const columns = [
   }),
   columnHelper.accessor('linked_project_id', {
     header: 'Project',
-    cell: (info) => (
-      <span className="text-sm text-foreground">{info.getValue().slice(0, 8)}…</span>
-    ),
+    cell: (info) => {
+      const id = info.getValue()
+      const meta = info.table.options.meta as Record<string, Record<string, string>> | undefined
+      const name = meta?.projectNameMap?.[id] ?? id.slice(0, 8) + '…'
+      return (
+        <Link
+          href={`/projects/${id}`}
+          className="text-sm text-primary hover:underline"
+        >
+          {name}
+        </Link>
+      )
+    },
   }),
   columnHelper.accessor('origin', {
     header: 'Origin',
@@ -106,9 +116,10 @@ const columns = [
 
 interface ChangeOrderTableProps {
   changeOrders: ChangeOrder[]
+  projectNameMap?: Record<string, string>
 }
 
-export function ChangeOrderTable({ changeOrders }: ChangeOrderTableProps) {
+export function ChangeOrderTable({ changeOrders, projectNameMap }: ChangeOrderTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -123,6 +134,7 @@ export function ChangeOrderTable({ changeOrders }: ChangeOrderTableProps) {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    meta: { projectNameMap: projectNameMap ?? {} },
   })
 
   return (

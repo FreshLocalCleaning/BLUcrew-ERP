@@ -1,5 +1,6 @@
 import { ExpansionTaskTable } from '@/components/expansion-task/expansion-task-table'
 import { listExpansionTasks } from '@/lib/db/expansion-tasks'
+import { listProjects } from '@/lib/db/projects'
 import {
   seedClients,
   seedContacts,
@@ -25,6 +26,8 @@ export default function GrowthPage() {
   seedMobilizations()
   seedExpansionTasks()
   const expansionTasks = listExpansionTasks()
+  const projects = listProjects()
+  const projectNameMap = Object.fromEntries(projects.map(p => [p.id, p.project_name]))
 
   return (
     <div className="space-y-6">
@@ -35,7 +38,7 @@ export default function GrowthPage() {
         </p>
       </div>
 
-      <ExpansionTaskTable expansionTasks={expansionTasks} />
+      <ExpansionTaskTable expansionTasks={expansionTasks} projectNameMap={projectNameMap} />
     </div>
   )
 }

@@ -66,7 +66,13 @@ const columns = [
   }),
   columnHelper.accessor('crew_lead_id', {
     header: 'Crew Lead',
-    cell: (info) => <span className="text-sm">{info.getValue() ?? '—'}</span>,
+    cell: (info) => {
+      const id = info.getValue()
+      if (!id) return <span className="text-sm text-muted-foreground">—</span>
+      // Show readable names for known crew leads
+      const names: Record<string, string> = { 'lead-1': 'Lead 1', 'lead-2': 'Lead 2', cullen: 'Cullen' }
+      return <span className="text-sm">{names[id] ?? id}</span>
+    },
   }),
   columnHelper.accessor('readiness_checklist', {
     header: 'Readiness',
