@@ -70,3 +70,25 @@ export async function listContactsByClientAction(clientId: string): Promise<Acti
   const contacts = contactDb.listContactsByClient(clientId)
   return { success: true, data: contacts }
 }
+
+/** Log a touch for a contact — increments touch_count and sets last_touch_date. */
+export async function logTouchAction(
+  input: { contact_id: string; notes?: string },
+): Promise<ActionResult<Contact>> {
+  const contact = contactDb.getContact(input.contact_id)
+  if (!contact) {
+    return { success: false, error: 'Contact not found' }
+  }
+
+  const updated = contactDb.updateContact(
+    input.contact_id,
+    {
+      touch_count: contact.touch_count + 1,
+      last_touch_date: new Date().toISOString(),
+      ...(input.notes ? { next_step: input.notes } : {}),
+    },
+    'system',
+    `Touch logged${input.notes ? `: ${input.notes}` : ''}`,
+  )
+  return { success: true, data: updated }
+}

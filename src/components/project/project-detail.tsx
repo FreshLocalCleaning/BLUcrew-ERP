@@ -12,9 +12,14 @@ import {
 } from '@/lib/state-machines/project'
 import { getAvailableTransitions } from '@/lib/state-machines/engine'
 import { transitionProjectAction } from '@/actions/project'
-import type { Project } from '@/types/commercial'
+import type { Project, Mobilization } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
+import Link from 'next/link'
+import {
+  MOBILIZATION_STATE_LABELS,
+} from '@/lib/state-machines/mobilization'
+import type { MobilizationState } from '@/lib/state-machines/mobilization'
 import {
   ArrowLeftRight,
   FileText,
@@ -25,6 +30,7 @@ import {
   Truck,
   Receipt,
   ClipboardCheck,
+  Plus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -32,6 +38,7 @@ import { cn } from '@/lib/utils'
 interface ProjectDetailProps {
   project: Project
   auditLog: AuditEntry[]
+  mobilizations?: Mobilization[]
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -54,7 +61,7 @@ function formatDate(iso?: string | null): string {
 
 type Tab = 'overview' | 'mobilizations' | 'change_orders' | 'baseline' | 'financials' | 'closeout' | 'activity'
 
-export function ProjectDetail({ project: initial, auditLog }: ProjectDetailProps) {
+export function ProjectDetail({ project: initial, auditLog, mobilizations = [] }: ProjectDetailProps) {
   const router = useRouter()
   const [project, setProject] = useState(initial)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -148,12 +155,78 @@ export function ProjectDetail({ project: initial, auditLog }: ProjectDetailProps
         )}
 
         {activeTab === 'mobilizations' && (
-          <div className="rounded-lg border border-dashed border-border bg-card p-12 text-center">
-            <Truck className="mx-auto h-8 w-8 text-muted-foreground" />
-            <h3 className="mt-3 text-lg font-semibold text-foreground">Mobilizations</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Mobilization management will be built in Sprint 5.
-            </p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                Mobilizations ({mobilizations.length})
+              </h2>
+              {(project.status === 'forecasting_active' || project.status === 'execution_active') && (
+                <Link
+                  href={`/mobilizations/new?project=${project.id}`}
+                  className="flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Mobilization
+                </Link>
+              )}
+            </div>
+
+            {mobilizations.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border bg-card p-12 text-center">
+                <Truck className="mx-auto h-8 w-8 text-muted-foreground" />
+                <h3 className="mt-3 text-lg font-semibold text-foreground">No Mobilizations</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create a mobilization to begin planning trips for this project.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {mobilizations.map((mob) => {
+                  const gateFields = [
+                    mob.readiness_checklist.crew_confirmed,
+                    mob.readiness_checklist.equipment_loaded,
+                    mob.readiness_checklist.travel_booked,
+                    mob.readiness_checklist.lodging_booked,
+                    mob.readiness_checklist.per_diem_approved,
+                  ]
+                  const readinessPct = Math.round(
+                    (gateFields.filter(Boolean).length / gateFields.length) * 100,
+                  )
+                  return (
+                    <Link
+                      key={mob.id}
+                      href={`/mobilizations/${mob.id}`}
+                      className="block rounded-lg border border-border bg-card p-4 hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-sm text-primary">{mob.reference_id}</span>
+                          <span className="text-sm font-medium text-foreground">{mob.stage_name}</span>
+                        </div>
+                        <StatusBadge
+                          state={mob.status}
+                          label={MOBILIZATION_STATE_LABELS[mob.status]}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Lead: {mob.crew_lead_id ?? '—'}</span>
+                        <span>Start: {mob.requested_start_date ? formatDate(mob.requested_start_date) : '—'}</span>
+                        <div className="flex items-center gap-1">
+                          <span>Readiness:</span>
+                          <div className="h-1.5 w-12 rounded-full bg-muted">
+                            <div
+                              className={`h-1.5 rounded-full ${readinessPct === 100 ? 'bg-green-500' : readinessPct > 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                              style={{ width: `${readinessPct}%` }}
+                            />
+                          </div>
+                          <span>{readinessPct}%</span>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 

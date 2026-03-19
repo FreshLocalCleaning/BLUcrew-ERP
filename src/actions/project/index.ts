@@ -5,6 +5,7 @@ import {
   projectTransitionSchema,
 } from '@/lib/validations/project'
 import * as projectDb from '@/lib/db/projects'
+import * as mobilizationDb from '@/lib/db/mobilizations'
 import { validateTransition } from '@/lib/state-machines/engine'
 import {
   projectStateMachine,
@@ -54,7 +55,17 @@ export async function transitionProjectAction(
     return { success: false, error: 'Project not found' }
   }
 
-  const entityForValidation = { ...project } as Record<string, unknown>
+  // Compute mobilization counts for state machine gate validation
+  const mobilizations = mobilizationDb.listMobilizationsByProject(project_id)
+  const openMobs = mobilizations.filter(
+    (m) => m.status !== 'complete' && m.status !== 'cancelled',
+  )
+
+  const entityForValidation = {
+    ...project,
+    mobilization_count: mobilizations.length,
+    open_mobilization_count: openMobs.length,
+  } as Record<string, unknown>
 
   const result = validateTransition(projectStateMachine, {
     currentState: project.status,
