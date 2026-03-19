@@ -12,6 +12,7 @@ import {
   FileText,
   Briefcase,
   ArrowRightLeft,
+  FolderKanban,
   FileCheck,
   TrendingUp,
   CheckSquare,
@@ -20,21 +21,61 @@ import {
   Zap,
 } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { label: 'Home', href: '/', icon: Home },
-  { label: 'Clients', href: '/clients', icon: Users },
-  { label: 'Contacts', href: '/contacts', icon: Contact },
-  { label: 'Pursuits', href: '/pursuits', icon: Target },
-  { label: 'Estimates', href: '/estimates', icon: Calculator },
-  { label: 'Proposals', href: '/proposals', icon: FileText },
-  { label: 'Commercial', href: '/commercial', icon: Briefcase },
-  { label: 'Handoffs', href: '/handoffs', icon: ArrowRightLeft },
-  { label: 'Change Orders', href: '/change-orders', icon: FileCheck },
-  { label: 'Growth', href: '/growth', icon: TrendingUp },
-  { label: 'Approvals', href: '/approvals', icon: CheckSquare },
-  { label: 'Reports', href: '/reports', icon: BarChart3 },
-  { label: 'Admin', href: '/admin', icon: Settings },
-] as const
+interface NavItem {
+  label: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+}
+
+interface NavSection {
+  title?: string
+  items: NavItem[]
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    items: [
+      { label: 'Home', href: '/', icon: Home },
+    ],
+  },
+  {
+    title: 'Pipeline',
+    items: [
+      { label: 'Clients', href: '/clients', icon: Users },
+      { label: 'Contacts', href: '/contacts', icon: Contact },
+      { label: 'Pursuits', href: '/pursuits', icon: Target },
+    ],
+  },
+  {
+    title: 'Commercial',
+    items: [
+      { label: 'Estimates', href: '/estimates', icon: Calculator },
+      { label: 'Proposals', href: '/proposals', icon: FileText },
+    ],
+  },
+  {
+    title: 'Handoffs',
+    items: [
+      { label: 'Handoffs', href: '/handoffs', icon: ArrowRightLeft },
+    ],
+  },
+  {
+    title: 'Projects',
+    items: [
+      { label: 'Projects', href: '/projects', icon: FolderKanban },
+      { label: 'Change Orders', href: '/change-orders', icon: FileCheck },
+    ],
+  },
+  {
+    title: 'Management',
+    items: [
+      { label: 'Growth', href: '/growth', icon: TrendingUp },
+      { label: 'Approvals', href: '/approvals', icon: CheckSquare },
+      { label: 'Reports', href: '/reports', icon: BarChart3 },
+      { label: 'Admin', href: '/admin', icon: Settings },
+    ],
+  },
+]
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -58,31 +99,42 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive =
-              item.href === '/'
-                ? pathname === '/'
-                : pathname.startsWith(item.href)
-            const Icon = item.icon
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-sidebar-accent text-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground',
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+        <div className="space-y-4">
+          {NAV_SECTIONS.map((section, si) => (
+            <div key={si}>
+              {section.title && (
+                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  {section.title}
+                </p>
+              )}
+              <ul className="space-y-1">
+                {section.items.map((item) => {
+                  const isActive =
+                    item.href === '/'
+                      ? pathname === '/'
+                      : pathname.startsWith(item.href)
+                  const Icon = item.icon
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-sidebar-accent text-foreground'
+                            : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground',
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       </nav>
 
       {/* Footer */}
