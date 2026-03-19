@@ -4,9 +4,10 @@ import { ChevronRight } from 'lucide-react'
 import { getPursuit } from '@/lib/db/pursuits'
 import { getClient } from '@/lib/db/clients'
 import { getProjectSignal } from '@/lib/db/project-signals'
+import { getActiveEstimateForPursuit } from '@/lib/db/estimates'
 import { getAuditLog } from '@/lib/db/json-db'
 import { PursuitDetail } from '@/components/pursuit/pursuit-detail'
-import { seedClients, seedContacts, seedProjectSignals, seedPursuits } from '@/lib/db/seed'
+import { seedClients, seedContacts, seedProjectSignals, seedPursuits, seedEstimates } from '@/lib/db/seed'
 
 interface PursuitDetailPageProps {
   params: Promise<{ id: string }>
@@ -20,6 +21,7 @@ export default async function PursuitDetailPage({ params }: PursuitDetailPagePro
   seedContacts()
   seedProjectSignals()
   seedPursuits()
+  seedEstimates()
 
   const pursuit = getPursuit(id)
   if (!pursuit) {
@@ -29,6 +31,10 @@ export default async function PursuitDetailPage({ params }: PursuitDetailPagePro
   const client = getClient(pursuit.client_id)
   const signal = pursuit.linked_signal_id ? getProjectSignal(pursuit.linked_signal_id) : undefined
   const auditLog = getAuditLog('pursuits', id)
+  const activeEstimate = pursuit.stage === 'estimate_ready' ? getActiveEstimateForPursuit(id) : undefined
+  const linkedEstimate = activeEstimate
+    ? { id: activeEstimate.id, reference_id: activeEstimate.reference_id, status: activeEstimate.status }
+    : null
 
   return (
     <div className="space-y-6">
@@ -84,7 +90,7 @@ export default async function PursuitDetailPage({ params }: PursuitDetailPagePro
       </div>
 
       {/* Detail component */}
-      <PursuitDetail pursuit={pursuit} auditLog={auditLog} />
+      <PursuitDetail pursuit={pursuit} auditLog={auditLog} linkedEstimate={linkedEstimate} />
     </div>
   )
 }

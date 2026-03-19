@@ -21,6 +21,7 @@ import {
 } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
+import Link from 'next/link'
 import {
   ArrowLeftRight,
   Pencil,
@@ -37,16 +38,25 @@ import {
   Signal,
   CheckCircle2,
   Circle,
+  Calculator,
 } from 'lucide-react'
+import { ESTIMATE_STATUS_LABELS, type EstimateStatus } from '@/lib/state-machines/estimate'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+
+interface LinkedEstimateInfo {
+  id: string
+  reference_id: string
+  status: EstimateStatus
+}
 
 interface PursuitDetailProps {
   pursuit: Pursuit
   auditLog: AuditEntry[]
+  linkedEstimate?: LinkedEstimateInfo | null
 }
 
-export function PursuitDetail({ pursuit: initialPursuit, auditLog }: PursuitDetailProps) {
+export function PursuitDetail({ pursuit: initialPursuit, auditLog, linkedEstimate }: PursuitDetailProps) {
   const router = useRouter()
   const [pursuit, setPursuit] = useState(initialPursuit)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -198,6 +208,47 @@ export function PursuitDetail({ pursuit: initialPursuit, auditLog }: PursuitDeta
             </div>
           )}
         </div>
+
+        {/* Linked Estimate Status */}
+        {pursuit.stage === 'estimate_ready' && (
+          <div className="rounded-lg border border-border bg-card p-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Estimate Status</h2>
+            {linkedEstimate ? (
+              <div className="flex items-center gap-3">
+                <Calculator className="h-5 w-5 text-muted-foreground" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/estimates/${linkedEstimate.id}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      {linkedEstimate.reference_id}
+                    </Link>
+                    <StatusBadge
+                      state={linkedEstimate.status}
+                      label={`Estimate Created — ${ESTIMATE_STATUS_LABELS[linkedEstimate.status]}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Calculator className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    No estimate created yet. This pursuit is ready for estimating.
+                  </p>
+                  <Link
+                    href={`/estimates/new?pursuitId=${pursuit.id}&clientId=${pursuit.client_id}`}
+                    className="mt-1 inline-block text-sm font-medium text-primary hover:underline"
+                  >
+                    Create Estimate
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Site Walk Events */}
         <div className="rounded-lg border border-border bg-card p-6">

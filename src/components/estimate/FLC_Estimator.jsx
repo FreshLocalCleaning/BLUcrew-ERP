@@ -215,7 +215,7 @@ var P = {
  } }
 };
 var CLIENTS = [
- // === FLC DIRECT / MSA CLIENTS ===
+ // === BLU CREW DIRECT / MSA CLIENTS ===
  { name: "JM Phelps Construction", def: "gas_station", msa: false, note: "Gas Stations / C-Stores, windows included" },
  { name: "Robins & Morton", def: "hospital", msa: false, note: "Hospitals; Schools. Facade restoration common." },
  { name: "SPD Construction", def: "dealership", msa: false, note: "Auto Dealerships" },
@@ -474,7 +474,8 @@ var PRESETS = [
  { label: "Final Only", ids: ["final"] },
  { label: "PPDC + Final", ids: ["prePunch", "final"] },
  { label: "3-Stage", ids: ["preEquip", "prePunch", "final"] },
- { label: "4-Stage BLU", ids: ["preEquip", "prePunch", "final", "go"] }
+ { label: "4-Stage BLU", ids: ["preEquip", "prePunch", "final", "go"] },
+ { label: "Custom", ids: null }
 ];
 var SURCH_LIST = [
  { id: "night", name: "Night/Rush", range: "15-35%", min: 15, max: 35, def: 25 },
@@ -697,7 +698,8 @@ function estCrews(sf) {
  return Math.ceil(sf / 100000);
 }
 
-function FLCEstimator() {
+function FLCEstimator(props) {
+ var initialData = props && props.initialData ? props.initialData : null;
  var [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
  useEffect(function() {
   function handleResize() { setIsMobile(window.innerWidth < 768); }
@@ -705,10 +707,14 @@ function FLCEstimator() {
   return function() { window.removeEventListener("resize", handleResize); };
  }, []);
  var fileRef = useRef(null);
- var [step, setStep] = useState(0);
- var [proj, sP] = useState({ name: "", client: "", bt: "", sf: "", baseMob: 900, city: "", miles: 0, msa: false, extSF: "", extTire: false, winEnabled: false, winPanes: "", winHeight: "standard", winSeparate: true, crewSize: "", perDiemRate: "", perDiemOverride: false, perDiemReason: "", tierReason: "", daysOverride: "", notes: "" });
- var [sel, sSel] = useState(["preEquip", "prePunch", "final", "go"]);
- var [clientMatch, sCm] = useState(null);
+ var [step, setStep] = useState(initialData && initialData.step != null ? initialData.step : 0);
+ var defaultProj = { name: "", client: "", bt: "", sf: "", baseMob: 900, city: "", miles: 0, msa: false, extSF: "", extTire: false, winEnabled: false, winPanes: "", winHeight: "standard", winSeparate: true, crewSize: "", perDiemRate: "", perDiemOverride: false, perDiemReason: "", tierReason: "", daysOverride: "", notes: "" };
+ if (initialData && initialData.proj) { for (var dk in initialData.proj) { if (initialData.proj.hasOwnProperty(dk) && defaultProj.hasOwnProperty(dk)) { defaultProj[dk] = initialData.proj[dk]; } } }
+ var [proj, sP] = useState(defaultProj);
+ var defaultSel = initialData && Array.isArray(initialData.sel) ? initialData.sel : ["preEquip", "prePunch", "final", "go"];
+ var [sel, sSel] = useState(defaultSel);
+ var initClientMatch = initialData && defaultProj.client ? CLIENTS.find(function(c) { return c.name.toLowerCase() === defaultProj.client.toLowerCase(); }) || null : null;
+ var [clientMatch, sCm] = useState(initClientMatch);
  var [cityResults, sCr] = useState([]);
  var [showCityDrop, sShowCD] = useState(false);
  var [showMilesInput, sShowMilesInput] = useState(false);
@@ -716,10 +722,10 @@ function FLCEstimator() {
  var [extracting, sExtracting] = useState(false);
  var [reviewView, sReviewView] = useState("summary");
  var [extractErr, sExtractErr] = useState("");
- var [areas, sAreas] = useState([]);
- var [tier, sTier] = useState(3);
- var [surch, sSurch] = useState({});
- var [scope, sScope] = useState("");
+ var [areas, sAreas] = useState(initialData && Array.isArray(initialData.areas) ? initialData.areas : []);
+ var [tier, sTier] = useState(initialData && typeof initialData.tier === "number" ? initialData.tier : 3);
+ var [surch, sSurch] = useState(initialData && initialData.surch ? initialData.surch : {});
+ var [scope, sScope] = useState(initialData && initialData.scope ? initialData.scope : "");
  var [scopeGT, sScopeGT] = useState(0); // GT at time scope was generated
  var [scopeEdit, sScopeEdit] = useState(false); // Edit mode toggle
  var [scopeL, sScopeL] = useState(false);
@@ -848,7 +854,7 @@ function FLCEstimator() {
    var url = URL.createObjectURL(blob);
    var a = document.createElement("a");
    a.href = url;
-   a.download = "FLC_Backup_" + new Date().toISOString().slice(0, 10) + ".json";
+   a.download = "BLU_Backup_" + new Date().toISOString().slice(0, 10) + ".json";
    a.click();
    URL.revokeObjectURL(url);
    sSaveMsg("Backup downloaded ✓");
@@ -1413,7 +1419,7 @@ function FLCEstimator() {
   var L = [];
   L.push("═══════════════════════════════════════════════════════════");
   L.push("CHANGE ORDER");
-  L.push("BLU Crew — Powered by Fresh Local Cleaning");
+  L.push("BLU Crew — Clean the Universe");
   L.push("═══════════════════════════════════════════════════════════");
   L.push("");
   L.push("Project: " + proj.name);
@@ -1530,7 +1536,7 @@ function FLCEstimator() {
    // PRICING BREAKDOWN header
    if (line.indexOf("PRICING BREAKDOWN") >= 0) { elements.push({ type: "section", text: line }); i++; continue; }
    // Footer
-   if (line.indexOf("BLU Crew") === 0 || line.indexOf("Fresh Local Cleaning") === 0 || line.indexOf("Dallas, TX") === 0 || line.indexOf("Caddo Mills") === 0 || (line.indexOf("Generated:") >= 0 && line.indexOf("FLC Estimator") >= 0)) { elements.push({ type: "footer", text: line }); i++; continue; }
+   if (line.indexOf("BLU Crew") === 0 || line.indexOf("Clean the Universe") === 0 || line.indexOf("Dallas, TX") === 0 || line.indexOf("Caddo Mills") === 0 || (line.indexOf("Generated:") >= 0 && line.indexOf("BLU Crew Estimator") >= 0)) { elements.push({ type: "footer", text: line }); i++; continue; }
    // Numbered section header (e.g. "1. PROJECT SUMMARY")
    if (/^\d+\.\s+[A-Z]/.test(line)) { elements.push({ type: "section", text: line }); i++; continue; }
    // Stage sub-header (e.g. "STAGE — PRE-PUNCHLIST DEEP CLEAN")
@@ -1614,8 +1620,8 @@ function FLCEstimator() {
    if (/^[A-Z][A-Za-z &\/,\-()]+$/.test(line.trim()) && line.trim().length < 60 && line.trim().length > 3 && line.charAt(0) !== " " && line.indexOf(":") < 0) { return '<div style="font-size:12px;font-weight:700;color:#333;margin-top:10px;margin-bottom:3px">' + esc + '</div>'; }
    if (/^[A-Z][A-Za-z ]+\(/.test(line.trim()) && line.trim().length < 80 && line.charAt(0) !== " " && line.indexOf(":") < 0) { return '<div style="font-size:12px;font-weight:700;color:#333;margin-top:10px;margin-bottom:3px">' + esc + '</div>'; }
    if (line.indexOf("___") >= 0) { return '<div style="font-size:12px;color:#555;margin-top:8px;padding-left:4px;font-family:monospace">' + esc + '</div>'; }
-   if (line.indexOf("Generated:") >= 0 && line.indexOf("FLC Estimator") >= 0) { return '<div style="font-size:9px;color:#BBB;text-align:center;margin-top:16px;padding-top:10px;border-top:1px solid #DDD">' + esc + '</div>'; }
-   if (line.indexOf("BLU Crew") === 0 || line.indexOf("Fresh Local Cleaning") === 0 || line.indexOf("Dallas, TX") === 0 || line.indexOf("Caddo Mills") === 0) { return '<div style="font-size:10px;color:#999;text-align:center;margin-top:4px">' + esc + '</div>'; }
+   if (line.indexOf("Generated:") >= 0 && line.indexOf("BLU Crew Estimator") >= 0) { return '<div style="font-size:9px;color:#BBB;text-align:center;margin-top:16px;padding-top:10px;border-top:1px solid #DDD">' + esc + '</div>'; }
+   if (line.indexOf("BLU Crew") === 0 || line.indexOf("Clean the Universe") === 0 || line.indexOf("Dallas, TX") === 0 || line.indexOf("Caddo Mills") === 0) { return '<div style="font-size:10px;color:#999;text-align:center;margin-top:4px">' + esc + '</div>'; }
    if (line.trim() === "") { return '<div style="height:4px"></div>'; }
    var kvMatch = line.match(/^([A-Z][A-Za-z\s\/&]+):\s(.*)/);
    if (kvMatch && line.indexOf("  ") !== 0) { return '<div style="font-size:11px;line-height:1.6;color:#333"><strong style="color:#555">' + escHtml(kvMatch[1]) + ':</strong> ' + escHtml(kvMatch[2]) + '</div>'; }
@@ -1660,7 +1666,7 @@ function FLCEstimator() {
   var dateStr = (d.getMonth() + 1) + "/" + d.getDate() + "/" + d.getFullYear();
   var h = '<div class="co-box">';
   h += '<div class="co-header">CHANGE ORDER</div>';
-  h += '<div class="co-sub">BLU Crew &mdash; Powered by Fresh Local Cleaning</div>';
+  h += '<div class="co-sub">BLU Crew &mdash; Clean the Universe</div>';
   h += '<div style="font-size:12px;line-height:1.8;margin-bottom:12px">';
   h += '<strong>Project:</strong> ' + escHtml(proj.name) + '<br>';
   h += '<strong>Client:</strong> ' + escHtml(proj.client) + '<br>';
@@ -1718,7 +1724,7 @@ function FLCEstimator() {
    inner += buildHeaderHTML(pr2);
    inner += '<div style="padding:0 4px">' + scopeToHTML(scope) + '</div>';
   }
-  inner += '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #DDD;text-align:center;font-size:9px;color:#BBB">Generated: ' + new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + ' | FLC Estimator &mdash; BLU Crew</div>';
+  inner += '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #DDD;text-align:center;font-size:9px;color:#BBB">Generated: ' + new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + ' | BLU Crew Estimator &mdash; BLU Crew</div>';
   return inner;
  }
  function loadHtml2Pdf() {
@@ -1805,7 +1811,7 @@ function FLCEstimator() {
    bodyText += "TOTAL: " + fmt(pr2.gt) + "\r\n";
    bodyText += "Proposal valid for 90 days from date of submission.\r\n\r\n";
   }
-  bodyText += "Thank you,\r\nBLU Crew — Powered by Fresh Local Cleaning\r\n";
+  bodyText += "Thank you,\r\nBLU Crew — Clean the Universe\r\n";
   loadHtml2Pdf().then(function(h2p) {
    return h2p().set({
     margin: [0.5, 0.6, 0.5, 0.6],
@@ -2295,9 +2301,9 @@ function FLCEstimator() {
   L.push("Company: " + (proj.client || "___________________________________"));
   L.push("");
   L.push("==================================================");
-  L.push("BLU Crew — Powered by Fresh Local Cleaning");
+  L.push("BLU Crew — Clean the Universe");
   L.push("Dallas, TX | Post-Construction Specialists");
-  L.push("Generated: " + new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + " | FLC Estimator");
+  L.push("Generated: " + new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + " | BLU Crew Estimator");
   return L.join("\n");
  }
  function genScope() {
@@ -2482,8 +2488,8 @@ function FLCEstimator() {
    <div style={{ background: "linear-gradient(135deg, " + BLU + ", #0D1F38)", padding: isMobile ? "12px 14px" : "16px 28px", position: "sticky", top: 0, zIndex: 50 }}>
     <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
      <div>
-      <div style={{ color: "white", fontSize: isMobile ? 16 : 20, fontWeight: 700 }}>FLC ESTIMATOR</div>
-      {!isMobile && <div style={{ color: "#8BAFD4", fontSize: 11 }}>BLU Crew — Powered by Fresh Local Cleaning</div>}
+      <div style={{ color: "white", fontSize: isMobile ? 16 : 20, fontWeight: 700 }}>BLU CREW ESTIMATOR</div>
+      {!isMobile && <div style={{ color: "#8BAFD4", fontSize: 11 }}>BLU Crew — Clean the Universe</div>}
      </div>
      <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
       {SN.map(function(s, i) {
@@ -2696,9 +2702,16 @@ function FLCEstimator() {
        </div>
        <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
         {PRESETS.map(function(p) {
+         var isCustom = p.ids === null;
+         var isActive = false;
+         if (isCustom) {
+          isActive = !PRESETS.some(function(pr) { return pr.ids !== null && pr.ids.length === sel.length && pr.ids.every(function(id) { return sel.indexOf(id) >= 0; }); });
+         } else {
+          isActive = p.ids.length === sel.length && p.ids.every(function(id) { return sel.indexOf(id) >= 0; });
+         }
          return (
-          <button key={p.label} onClick={function() { sSel(p.ids); }}
-           style={{ padding: "3px 10px", borderRadius: 14, border: "1px solid #DDD", background: "white", fontSize: 10, color: "#666", cursor: "pointer" }}>
+          <button key={p.label} onClick={function() { if (!isCustom) { sSel(p.ids); } }}
+           style={{ padding: "3px 10px", borderRadius: 14, border: "1px solid " + (isActive ? ACC : "#DDD"), background: isActive ? LT : "white", fontSize: 10, color: isActive ? BLU : "#666", fontWeight: isActive ? 700 : 400, cursor: "pointer" }}>
            {p.label}
           </button>
          );
@@ -3731,6 +3744,6 @@ class FLCErrorBoundary extends React.Component {
  }
 }
 
-export default function FLCEstimatorApp() {
- return React.createElement(FLCErrorBoundary, null, React.createElement(FLCEstimator));
+export default function FLCEstimatorApp(props) {
+ return React.createElement(FLCErrorBoundary, null, React.createElement(FLCEstimator, props));
 }

@@ -230,7 +230,7 @@ export function EstimateDetail({ estimate: initialEstimate, auditLog }: Estimate
             ) : (
               <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center">
                 <p className="text-sm text-muted-foreground">
-                  No pricing summary yet. Use the Build tab to create the estimate in the FLC Estimator.
+                  No pricing summary yet. Use the Build tab to create the estimate in the BLU Crew Estimator.
                 </p>
               </div>
             )}

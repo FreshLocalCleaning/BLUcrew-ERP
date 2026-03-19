@@ -15,6 +15,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { MOBILIZATION_STATE_LABELS } from '@/lib/state-machines/mobilization'
 import type { Mobilization } from '@/types/commercial'
 import type { MobilizationState } from '@/lib/state-machines/mobilization'
+import { CREW_MEMBERS } from './mobilization-detail'
 
 const columnHelper = createColumnHelper<Mobilization>()
 
@@ -73,9 +74,7 @@ const columns = [
     cell: (info) => {
       const id = info.getValue()
       if (!id) return <span className="text-sm text-muted-foreground">—</span>
-      // Show readable names for known crew leads
-      const names: Record<string, string> = { 'lead-1': 'Lead 1', 'lead-2': 'Lead 2', cullen: 'Cullen' }
-      return <span className="text-sm">{names[id] ?? id}</span>
+      return <span className="text-sm">{CREW_MEMBERS[id] ?? id}</span>
     },
   }),
   columnHelper.accessor('readiness_checklist', {
