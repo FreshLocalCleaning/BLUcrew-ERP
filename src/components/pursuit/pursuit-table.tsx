@@ -29,7 +29,8 @@ const columns = [
     cell: (info) => (
       <Link
         href={`/pursuits/${info.row.original.id}`}
-        className="font-medium text-blue-400 hover:underline"
+        className="font-medium hover:underline"
+        style={{ color: '#60a5fa' }}
       >
         {info.getValue()}
       </Link>
@@ -48,7 +49,8 @@ const columns = [
     cell: (info) => (
       <Link
         href={`/clients/${info.row.original.client_id}`}
-        className="text-sm text-blue-400 hover:underline"
+        className="text-sm hover:underline"
+        style={{ color: '#60a5fa' }}
       >
         {info.getValue()}
       </Link>
