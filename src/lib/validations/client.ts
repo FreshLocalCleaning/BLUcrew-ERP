@@ -37,6 +37,7 @@ export const createClientSchema = z.object({
   bd_owner_id: z.string().optional(),
   bd_owner_name: z.string().optional(),
   ghl_company_id: z.string().optional(),
+  preferred_provider_candidate: z.boolean().default(false),
 })
 
 export type CreateClientInput = z.infer<typeof createClientSchema>

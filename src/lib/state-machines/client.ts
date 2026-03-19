@@ -2,23 +2,24 @@
  * Client State Machine
  *
  * Pure logic — no database dependency.
- * States from BLU Crew operating system:
+ * ERP-13 Client lifecycle — 6 states only:
  *   Watchlist → Target Client → Developing Relationship →
- *   Active Customer → Strategic/Preferred Candidate → Dormant → Archived
+ *   Active Client → Dormant → Archived
+ *
+ * Preferred-Provider Candidate is a TAG on Active Client, not a state.
  */
 
 import type { StateMachineDef } from './engine'
 
 // ---------------------------------------------------------------------------
-// Client States
+// Client States (ERP-13 Table 9)
 // ---------------------------------------------------------------------------
 
 export const CLIENT_STATES = [
   'watchlist',
   'target_client',
   'developing_relationship',
-  'active_customer',
-  'strategic_preferred',
+  'active_client',
   'dormant',
   'archived',
 ] as const
@@ -29,14 +30,13 @@ export const CLIENT_STATE_LABELS: Record<ClientState, string> = {
   watchlist: 'Watchlist',
   target_client: 'Target Client',
   developing_relationship: 'Developing Relationship',
-  active_customer: 'Active Customer',
-  strategic_preferred: 'Strategic/Preferred Candidate',
+  active_client: 'Active Client',
   dormant: 'Dormant',
   archived: 'Archived',
 }
 
 // ---------------------------------------------------------------------------
-// Machine Definition
+// Machine Definition (ERP-13)
 // ---------------------------------------------------------------------------
 
 export const clientStateMachine: StateMachineDef<ClientState> = {
@@ -89,17 +89,6 @@ export const clientStateMachine: StateMachineDef<ClientState> = {
     },
     {
       fromStates: ['target_client'],
-      toState: 'dormant',
-      requiredFields: [],
-      requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'BD_OWNER', 'COM_COORD'],
-      sideEffects: ['schedule_dormant_review'],
-      blockers: [],
-      requiresApproval: false,
-      requiresReason: true,
-      label: 'Mark Dormant',
-    },
-    {
-      fromStates: ['target_client'],
       toState: 'archived',
       requiredFields: [],
       requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'APPROVER'],
@@ -113,30 +102,19 @@ export const clientStateMachine: StateMachineDef<ClientState> = {
     // --- From Developing Relationship ---
     {
       fromStates: ['developing_relationship'],
-      toState: 'active_customer',
+      toState: 'active_client',
       requiredFields: ['won_award_id'],
       requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'BD_OWNER', 'COM_COORD'],
       sideEffects: ['notify_ops_new_customer'],
       blockers: [
         (entity) => {
           if (entity['won_award_id']) return null
-          return 'A won award is required to promote to Active Customer.'
+          return 'A won award is required to promote to Active Client.'
         },
       ],
       requiresApproval: false,
       requiresReason: false,
-      label: 'Promote to Active Customer',
-    },
-    {
-      fromStates: ['developing_relationship'],
-      toState: 'strategic_preferred',
-      requiredFields: [],
-      requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'APPROVER'],
-      sideEffects: ['notify_leadership_strategic'],
-      blockers: [],
-      requiresApproval: true,
-      requiresReason: false,
-      label: 'Elevate to Strategic/Preferred',
+      label: 'Promote to Active Client',
     },
     {
       fromStates: ['developing_relationship'],
@@ -149,21 +127,21 @@ export const clientStateMachine: StateMachineDef<ClientState> = {
       requiresReason: true,
       label: 'Mark Dormant',
     },
-
-    // --- From Active Customer ---
     {
-      fromStates: ['active_customer'],
-      toState: 'strategic_preferred',
+      fromStates: ['developing_relationship'],
+      toState: 'archived',
       requiredFields: [],
       requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'APPROVER'],
-      sideEffects: ['notify_leadership_strategic'],
+      sideEffects: ['log_archive'],
       blockers: [],
-      requiresApproval: true,
-      requiresReason: false,
-      label: 'Elevate to Strategic/Preferred',
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Archive',
     },
+
+    // --- From Active Client ---
     {
-      fromStates: ['active_customer'],
+      fromStates: ['active_client'],
       toState: 'dormant',
       requiredFields: [],
       requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'BD_OWNER', 'COM_COORD'],
@@ -173,29 +151,16 @@ export const clientStateMachine: StateMachineDef<ClientState> = {
       requiresReason: true,
       label: 'Mark Dormant',
     },
-
-    // --- From Strategic/Preferred ---
     {
-      fromStates: ['strategic_preferred'],
-      toState: 'dormant',
+      fromStates: ['active_client'],
+      toState: 'archived',
       requiredFields: [],
       requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'APPROVER'],
-      sideEffects: ['notify_leadership_strategic_change'],
+      sideEffects: ['log_archive'],
       blockers: [],
       requiresApproval: false,
       requiresReason: true,
-      label: 'Mark Dormant',
-    },
-    {
-      fromStates: ['strategic_preferred'],
-      toState: 'active_customer',
-      requiredFields: [],
-      requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'APPROVER'],
-      sideEffects: ['notify_leadership_strategic_change'],
-      blockers: [],
-      requiresApproval: false,
-      requiresReason: true,
-      label: 'Demote to Active Customer',
+      label: 'Archive',
     },
 
     // --- From Dormant ---
@@ -221,8 +186,19 @@ export const clientStateMachine: StateMachineDef<ClientState> = {
       requiresReason: true,
       label: 'Reactivate as Developing',
     },
+    {
+      fromStates: ['dormant'],
+      toState: 'archived',
+      requiredFields: [],
+      requiredRoles: ['SYS_ADMIN', 'COM_LEAD', 'APPROVER'],
+      sideEffects: ['log_archive'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Archive',
+    },
 
-    // --- From Archived (leadership reopen only) ---
+    // --- From Archived (admin reactivation only) ---
     {
       fromStates: ['archived'],
       toState: 'watchlist',
@@ -230,9 +206,9 @@ export const clientStateMachine: StateMachineDef<ClientState> = {
       requiredRoles: ['SYS_ADMIN', 'COM_LEAD'],
       sideEffects: ['log_reopen'],
       blockers: [],
-      requiresApproval: false,
+      requiresApproval: true,
       requiresReason: true,
-      label: 'Reopen to Watchlist',
+      label: 'Reactivate to Watchlist',
     },
   ],
 }

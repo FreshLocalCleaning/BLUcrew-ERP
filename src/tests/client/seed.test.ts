@@ -40,7 +40,7 @@ describe('Client Seed Data', () => {
     seedClients()
     const summit = listClients().find((c) => c.name === 'Summit Peak Builders')
     expect(summit).toBeDefined()
-    expect(summit!.status).toBe('active_customer' as ClientState)
+    expect(summit!.status).toBe('active_client' satisfies ClientState)
     expect(summit!.tier).toBe('A')
     expect(summit!.market).toBe('dallas_fort_worth')
   })
@@ -70,11 +70,12 @@ describe('Client Seed Data', () => {
     expect(ac!.market).toBe('austin')
   })
 
-  it('seeds Rogers-O\'Brien as Active Customer', () => {
+  it('seeds Rogers-O\'Brien as Active Client with preferred-provider tag', () => {
     seedClients()
     const ro = listClients().find((c) => c.name.includes('Rogers'))
     expect(ro).toBeDefined()
-    expect(ro!.status).toBe('active_customer' as ClientState)
+    expect(ro!.status).toBe('active_client' satisfies ClientState)
+    expect(ro!.preferred_provider_candidate).toBe(true)
     expect(ro!.tier).toBe('A')
   })
 

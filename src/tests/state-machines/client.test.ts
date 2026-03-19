@@ -11,11 +11,12 @@ function makeEntity(overrides: Record<string, unknown> = {}): Record<string, unk
   return {
     id: 'client-1',
     name: 'Test Client',
-    tier: 'enterprise',
-    vertical: 'healthcare',
+    tier: 'A',
+    vertical: 'general_contractor',
     next_action: 'Schedule intro call',
     contacts: [{ id: 'c1', name: 'John' }],
     won_award_id: 'award-1',
+    preferred_provider_candidate: false,
     ...overrides,
   }
 }
@@ -43,8 +44,15 @@ function transition(
 // ---------------------------------------------------------------------------
 
 describe('Client State Machine — Structure', () => {
-  it('has 7 defined states', () => {
-    expect(CLIENT_STATES).toHaveLength(7)
+  it('has 6 defined states (ERP-13)', () => {
+    expect(CLIENT_STATES).toHaveLength(6)
+  })
+
+  it('states are watchlist, target_client, developing_relationship, active_client, dormant, archived', () => {
+    expect([...CLIENT_STATES]).toEqual([
+      'watchlist', 'target_client', 'developing_relationship',
+      'active_client', 'dormant', 'archived',
+    ])
   })
 
   it('initial state is watchlist', () => {
@@ -54,101 +62,90 @@ describe('Client State Machine — Structure', () => {
   it('archived is terminal', () => {
     expect(clientStateMachine.terminalStates).toEqual(['archived'])
   })
+
+  it('strategic_preferred is NOT a state', () => {
+    expect(CLIENT_STATES).not.toContain('strategic_preferred')
+  })
+
+  it('active_customer is NOT a state (renamed to active_client)', () => {
+    expect(CLIENT_STATES).not.toContain('active_customer')
+  })
 })
 
 // ---------------------------------------------------------------------------
-// Valid transitions
+// Valid transitions (ERP-13 Table 9)
 // ---------------------------------------------------------------------------
 
 describe('Client State Machine — Valid Transitions', () => {
-  // Watchlist → Target Client
+  // Watchlist
   it('watchlist → target_client (with tier and vertical)', () => {
     const result = transition('watchlist', 'target_client', ['BD_OWNER'], makeEntity())
     expect(result.allowed).toBe(true)
     expect(result.errors).toHaveLength(0)
   })
 
-  // Watchlist → Archived (leadership, with reason)
   it('watchlist → archived (COM_LEAD with reason)', () => {
     const result = transition('watchlist', 'archived', ['COM_LEAD'], makeEntity(), 'No longer a fit')
     expect(result.allowed).toBe(true)
   })
 
-  // Target → Developing
+  // Target Client
   it('target_client → developing_relationship (with next_action and contacts)', () => {
     const result = transition('target_client', 'developing_relationship', ['BD_OWNER'], makeEntity())
     expect(result.allowed).toBe(true)
   })
 
-  // Target → Dormant (with reason)
-  it('target_client → dormant (with reason)', () => {
-    const result = transition('target_client', 'dormant', ['BD_OWNER'], makeEntity(), 'Unresponsive')
-    expect(result.allowed).toBe(true)
-  })
-
-  // Target → Archived (leadership with reason)
   it('target_client → archived (leadership with reason)', () => {
     const result = transition('target_client', 'archived', ['COM_LEAD'], makeEntity(), 'Disqualified')
     expect(result.allowed).toBe(true)
   })
 
-  // Developing → Active Customer (with won award)
-  it('developing_relationship → active_customer (with won_award_id)', () => {
-    const result = transition('developing_relationship', 'active_customer', ['BD_OWNER'], makeEntity())
+  // Developing Relationship
+  it('developing_relationship → active_client (with won_award_id)', () => {
+    const result = transition('developing_relationship', 'active_client', ['BD_OWNER'], makeEntity())
     expect(result.allowed).toBe(true)
   })
 
-  // Developing → Strategic (with approval)
-  it('developing_relationship → strategic_preferred (with approval)', () => {
-    const result = transition('developing_relationship', 'strategic_preferred', ['COM_LEAD'], makeEntity(), undefined, true)
-    expect(result.allowed).toBe(true)
-  })
-
-  // Developing → Dormant (with reason)
   it('developing_relationship → dormant (with reason)', () => {
     const result = transition('developing_relationship', 'dormant', ['BD_OWNER'], makeEntity(), 'Pausing engagement')
     expect(result.allowed).toBe(true)
   })
 
-  // Active → Strategic (with approval)
-  it('active_customer → strategic_preferred (with approval)', () => {
-    const result = transition('active_customer', 'strategic_preferred', ['COM_LEAD'], makeEntity(), undefined, true)
+  it('developing_relationship → archived (leadership with reason)', () => {
+    const result = transition('developing_relationship', 'archived', ['COM_LEAD'], makeEntity(), 'Bad fit')
     expect(result.allowed).toBe(true)
   })
 
-  // Active → Dormant (with reason)
-  it('active_customer → dormant (with reason)', () => {
-    const result = transition('active_customer', 'dormant', ['BD_OWNER'], makeEntity(), 'Contract ended')
+  // Active Client
+  it('active_client → dormant (with reason)', () => {
+    const result = transition('active_client', 'dormant', ['BD_OWNER'], makeEntity(), 'Contract ended')
     expect(result.allowed).toBe(true)
   })
 
-  // Strategic → Dormant (leadership with reason)
-  it('strategic_preferred → dormant (leadership with reason)', () => {
-    const result = transition('strategic_preferred', 'dormant', ['COM_LEAD'], makeEntity(), 'Downgrading')
+  it('active_client → archived (leadership with reason)', () => {
+    const result = transition('active_client', 'archived', ['COM_LEAD'], makeEntity(), 'Account closed')
     expect(result.allowed).toBe(true)
   })
 
-  // Strategic → Active (leadership with reason)
-  it('strategic_preferred → active_customer (leadership with reason)', () => {
-    const result = transition('strategic_preferred', 'active_customer', ['COM_LEAD'], makeEntity(), 'Reclassifying')
-    expect(result.allowed).toBe(true)
-  })
-
-  // Dormant → Target (with reason and next_action)
+  // Dormant
   it('dormant → target_client (with reason and next_action)', () => {
     const result = transition('dormant', 'target_client', ['BD_OWNER'], makeEntity(), 'Re-engaging')
     expect(result.allowed).toBe(true)
   })
 
-  // Dormant → Developing (with reason and next_action)
   it('dormant → developing_relationship (with reason and next_action)', () => {
     const result = transition('dormant', 'developing_relationship', ['BD_OWNER'], makeEntity(), 'Renewed interest')
     expect(result.allowed).toBe(true)
   })
 
-  // Archived → Watchlist (leadership reopen with reason)
-  it('archived → watchlist (leadership reopen with reason)', () => {
-    const result = transition('archived', 'watchlist', ['COM_LEAD'], makeEntity(), 'Revisiting opportunity')
+  it('dormant → archived (leadership with reason)', () => {
+    const result = transition('dormant', 'archived', ['COM_LEAD'], makeEntity(), 'Fully retired')
+    expect(result.allowed).toBe(true)
+  })
+
+  // Archived (admin reactivation)
+  it('archived → watchlist (leadership reopen with reason + approval)', () => {
+    const result = transition('archived', 'watchlist', ['COM_LEAD'], makeEntity(), 'Revisiting opportunity', true)
     expect(result.allowed).toBe(true)
   })
 })
@@ -182,8 +179,8 @@ describe('Client State Machine — Blocked: Missing Fields', () => {
     expect(result.errors.some((e) => e.toLowerCase().includes('contact'))).toBe(true)
   })
 
-  it('developing → active blocked without won_award_id', () => {
-    const result = transition('developing_relationship', 'active_customer', ['BD_OWNER'], makeEntity({ won_award_id: '' }))
+  it('developing → active_client blocked without won_award_id', () => {
+    const result = transition('developing_relationship', 'active_client', ['BD_OWNER'], makeEntity({ won_award_id: '' }))
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.toLowerCase().includes('award'))).toBe(true)
   })
@@ -206,20 +203,20 @@ describe('Client State Machine — Blocked: Missing Reason', () => {
     expect(result.errors.some((e) => e.toLowerCase().includes('reason'))).toBe(true)
   })
 
-  it('target → dormant blocked without reason', () => {
-    const result = transition('target_client', 'dormant', ['BD_OWNER'], makeEntity())
+  it('developing → dormant blocked without reason', () => {
+    const result = transition('developing_relationship', 'dormant', ['BD_OWNER'], makeEntity())
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.toLowerCase().includes('reason'))).toBe(true)
   })
 
-  it('strategic → dormant blocked without reason', () => {
-    const result = transition('strategic_preferred', 'dormant', ['COM_LEAD'], makeEntity())
+  it('active_client → dormant blocked without reason', () => {
+    const result = transition('active_client', 'dormant', ['BD_OWNER'], makeEntity())
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.toLowerCase().includes('reason'))).toBe(true)
   })
 
-  it('strategic → active blocked without reason', () => {
-    const result = transition('strategic_preferred', 'active_customer', ['COM_LEAD'], makeEntity())
+  it('active_client → archived blocked without reason', () => {
+    const result = transition('active_client', 'archived', ['COM_LEAD'], makeEntity())
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.toLowerCase().includes('reason'))).toBe(true)
   })
@@ -231,7 +228,7 @@ describe('Client State Machine — Blocked: Missing Reason', () => {
   })
 
   it('archived → watchlist blocked without reason', () => {
-    const result = transition('archived', 'watchlist', ['COM_LEAD'], makeEntity())
+    const result = transition('archived', 'watchlist', ['COM_LEAD'], makeEntity(), undefined, true)
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.toLowerCase().includes('reason'))).toBe(true)
   })
@@ -254,26 +251,8 @@ describe('Client State Machine — Blocked: Insufficient Roles', () => {
     expect(result.errors.some((e) => e.toLowerCase().includes('permission') || e.toLowerCase().includes('role'))).toBe(true)
   })
 
-  it('developing → strategic blocked for BD_OWNER (needs leadership)', () => {
-    const result = transition('developing_relationship', 'strategic_preferred', ['BD_OWNER'], makeEntity(), undefined, true)
-    expect(result.allowed).toBe(false)
-    expect(result.errors.some((e) => e.toLowerCase().includes('permission') || e.toLowerCase().includes('role'))).toBe(true)
-  })
-
-  it('strategic → dormant blocked for BD_OWNER (leadership only)', () => {
-    const result = transition('strategic_preferred', 'dormant', ['BD_OWNER'], makeEntity(), 'Reason')
-    expect(result.allowed).toBe(false)
-    expect(result.errors.some((e) => e.toLowerCase().includes('permission') || e.toLowerCase().includes('role'))).toBe(true)
-  })
-
-  it('strategic → active blocked for BD_OWNER (leadership only)', () => {
-    const result = transition('strategic_preferred', 'active_customer', ['BD_OWNER'], makeEntity(), 'Reason')
-    expect(result.allowed).toBe(false)
-    expect(result.errors.some((e) => e.toLowerCase().includes('permission') || e.toLowerCase().includes('role'))).toBe(true)
-  })
-
   it('archived → watchlist blocked for BD_OWNER (leadership only)', () => {
-    const result = transition('archived', 'watchlist', ['BD_OWNER'], makeEntity(), 'Reason')
+    const result = transition('archived', 'watchlist', ['BD_OWNER'], makeEntity(), 'Reason', true)
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.toLowerCase().includes('permission') || e.toLowerCase().includes('role'))).toBe(true)
   })
@@ -289,47 +268,46 @@ describe('Client State Machine — Blocked: Insufficient Roles', () => {
 // ---------------------------------------------------------------------------
 
 describe('Client State Machine — Blocked: Approval Required', () => {
-  it('developing → strategic blocked without approval', () => {
-    const result = transition('developing_relationship', 'strategic_preferred', ['COM_LEAD'], makeEntity())
-    expect(result.allowed).toBe(false)
-    expect(result.errors.some((e) => e.toLowerCase().includes('approval'))).toBe(true)
-  })
-
-  it('active → strategic blocked without approval', () => {
-    const result = transition('active_customer', 'strategic_preferred', ['COM_LEAD'], makeEntity())
+  it('archived → watchlist blocked without approval (admin reactivation)', () => {
+    const result = transition('archived', 'watchlist', ['COM_LEAD'], makeEntity(), 'Reactivating')
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.toLowerCase().includes('approval'))).toBe(true)
   })
 })
 
 // ---------------------------------------------------------------------------
-// Invalid transitions (no path defined)
+// Invalid transitions (no path defined per ERP-13)
 // ---------------------------------------------------------------------------
 
 describe('Client State Machine — Invalid Transitions', () => {
-  it('watchlist → active_customer is not allowed', () => {
-    const result = transition('watchlist', 'active_customer', ['COM_LEAD'], makeEntity())
+  it('watchlist → active_client is not allowed (must go through target + developing)', () => {
+    const result = transition('watchlist', 'active_client', ['COM_LEAD'], makeEntity())
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.includes('No transition defined'))).toBe(true)
   })
 
-  it('watchlist → developing_relationship is not allowed', () => {
+  it('watchlist → developing_relationship is not allowed (must go through target)', () => {
     const result = transition('watchlist', 'developing_relationship', ['COM_LEAD'], makeEntity())
     expect(result.allowed).toBe(false)
   })
 
-  it('active_customer → watchlist is not allowed', () => {
-    const result = transition('active_customer', 'watchlist', ['COM_LEAD'], makeEntity())
+  it('active_client → watchlist is not allowed', () => {
+    const result = transition('active_client', 'watchlist', ['COM_LEAD'], makeEntity())
     expect(result.allowed).toBe(false)
   })
 
-  it('dormant → active_customer is not allowed', () => {
-    const result = transition('dormant', 'active_customer', ['COM_LEAD'], makeEntity(), 'Reason')
+  it('dormant → active_client is not allowed (must go through target or developing)', () => {
+    const result = transition('dormant', 'active_client', ['COM_LEAD'], makeEntity(), 'Reason')
     expect(result.allowed).toBe(false)
   })
 
-  it('dormant → strategic is not allowed', () => {
-    const result = transition('dormant', 'strategic_preferred', ['COM_LEAD'], makeEntity(), 'Reason')
+  it('target_client → active_client is not allowed (must go through developing)', () => {
+    const result = transition('target_client', 'active_client', ['COM_LEAD'], makeEntity())
+    expect(result.allowed).toBe(false)
+  })
+
+  it('active_client → developing_relationship is not allowed (no backward move)', () => {
+    const result = transition('active_client', 'developing_relationship', ['COM_LEAD'], makeEntity())
     expect(result.allowed).toBe(false)
   })
 })
@@ -353,6 +331,27 @@ describe('Client State Machine — getAvailableTransitions', () => {
     expect(transitions[0]?.toState).toBe('target_client')
   })
 
+  it('developing_relationship has 3 transitions for COM_LEAD', () => {
+    const transitions = getAvailableTransitions(clientStateMachine, 'developing_relationship', ['COM_LEAD'])
+    expect(transitions).toHaveLength(3)
+    const targets = transitions.map((t) => t.toState).sort()
+    expect(targets).toEqual(['active_client', 'archived', 'dormant'])
+  })
+
+  it('active_client has 2 transitions for COM_LEAD (dormant, archived)', () => {
+    const transitions = getAvailableTransitions(clientStateMachine, 'active_client', ['COM_LEAD'])
+    expect(transitions).toHaveLength(2)
+    const targets = transitions.map((t) => t.toState).sort()
+    expect(targets).toEqual(['archived', 'dormant'])
+  })
+
+  it('dormant has 3 transitions for COM_LEAD', () => {
+    const transitions = getAvailableTransitions(clientStateMachine, 'dormant', ['COM_LEAD'])
+    expect(transitions).toHaveLength(3)
+    const targets = transitions.map((t) => t.toState).sort()
+    expect(targets).toEqual(['archived', 'developing_relationship', 'target_client'])
+  })
+
   it('archived has 0 transitions for BD_OWNER', () => {
     const transitions = getAvailableTransitions(clientStateMachine, 'archived', ['BD_OWNER'])
     expect(transitions).toHaveLength(0)
@@ -372,7 +371,6 @@ describe('Client State Machine — getAvailableTransitions', () => {
   })
 
   it('multi-role user gets combined transitions', () => {
-    // BD_OWNER can go watchlist → target, COM_LEAD can also go watchlist → archived
     const transitions = getAvailableTransitions(clientStateMachine, 'watchlist', ['BD_OWNER', 'COM_LEAD'])
     expect(transitions).toHaveLength(2)
   })
@@ -386,6 +384,11 @@ describe('Client State Machine — Side Effects', () => {
   it('watchlist → target returns notify_bd_owner side effect', () => {
     const result = transition('watchlist', 'target_client', ['BD_OWNER'], makeEntity())
     expect(result.sideEffects).toContain('notify_bd_owner')
+  })
+
+  it('developing → active_client returns notify_ops_new_customer', () => {
+    const result = transition('developing_relationship', 'active_client', ['BD_OWNER'], makeEntity())
+    expect(result.sideEffects).toContain('notify_ops_new_customer')
   })
 
   it('blocked transition returns no side effects', () => {

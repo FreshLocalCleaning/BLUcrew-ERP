@@ -86,7 +86,7 @@ describe('Client Server Actions — Transition', () => {
     expect(result.data?.status).toBe('target_client')
   })
 
-  it('fails for invalid transition (watchlist → active_customer)', async () => {
+  it('fails for invalid transition (watchlist → active_client)', async () => {
     const created = await createClientAction({
       name: 'Bad Transition',
       tier: 'A',
@@ -94,7 +94,7 @@ describe('Client Server Actions — Transition', () => {
 
     const result = await transitionClientAction({
       client_id: created.data!.id,
-      target_state: 'active_customer',
+      target_state: 'active_client',
     })
     expect(result.success).toBe(false)
     expect(result.error).toContain('No transition defined')
@@ -116,16 +116,10 @@ describe('Client Server Actions — Transition', () => {
       vertical: 'general_contractor',
     })
 
-    // Move to target first
-    await transitionClientAction({
-      client_id: created.data!.id,
-      target_state: 'target_client',
-    })
-
-    // target → dormant requires reason
+    // watchlist → archived requires reason
     const result = await transitionClientAction({
       client_id: created.data!.id,
-      target_state: 'dormant',
+      target_state: 'archived',
     })
     expect(result.success).toBe(false)
     expect(result.error).toContain('reason')
@@ -138,18 +132,13 @@ describe('Client Server Actions — Transition', () => {
       vertical: 'general_contractor',
     })
 
-    await transitionClientAction({
-      client_id: created.data!.id,
-      target_state: 'target_client',
-    })
-
     const result = await transitionClientAction({
       client_id: created.data!.id,
-      target_state: 'dormant',
-      reason: 'Unresponsive to outreach',
+      target_state: 'archived',
+      reason: 'No longer a fit',
     })
     expect(result.success).toBe(true)
-    expect(result.data?.status).toBe('dormant')
+    expect(result.data?.status).toBe('archived')
   })
 })
 

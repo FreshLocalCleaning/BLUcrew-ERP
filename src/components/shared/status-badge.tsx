@@ -7,12 +7,11 @@ import { cn } from '@/lib/utils'
 // ---------------------------------------------------------------------------
 
 const STATE_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  // Client states
+  // Client states (ERP-13: 6 states)
   watchlist: { bg: 'bg-slate-800', text: 'text-slate-300', dot: 'bg-slate-400' },
   target_client: { bg: 'bg-blue-900/50', text: 'text-blue-300', dot: 'bg-blue-400' },
   developing_relationship: { bg: 'bg-cyan-900/50', text: 'text-cyan-300', dot: 'bg-cyan-400' },
-  active_customer: { bg: 'bg-green-900/50', text: 'text-green-300', dot: 'bg-green-400' },
-  strategic_preferred: { bg: 'bg-purple-900/50', text: 'text-purple-300', dot: 'bg-purple-400' },
+  active_client: { bg: 'bg-green-900/50', text: 'text-green-300', dot: 'bg-green-400' },
   dormant: { bg: 'bg-amber-900/50', text: 'text-amber-300', dot: 'bg-amber-400' },
   archived: { bg: 'bg-gray-800', text: 'text-gray-400', dot: 'bg-gray-500' },
 

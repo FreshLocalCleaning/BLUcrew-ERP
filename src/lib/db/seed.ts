@@ -19,6 +19,7 @@ interface SeedClient {
   market: Client['market']
   vertical: Client['vertical']
   relationship_strength: Client['relationship_strength']
+  preferred_provider_candidate?: boolean
   owner: string
   next_action?: string
   next_action_date?: string
@@ -30,7 +31,7 @@ const SEED_CLIENTS: SeedClient[] = [
   {
     name: 'Summit Peak Builders',
     tier: 'A',
-    status: 'active_customer',
+    status: 'active_client',
     market: 'dallas_fort_worth',
     vertical: 'general_contractor',
     relationship_strength: 'active',
@@ -82,10 +83,11 @@ const SEED_CLIENTS: SeedClient[] = [
   {
     name: 'Rogers-O\'Brien',
     tier: 'A',
-    status: 'active_customer',
+    status: 'active_client',
     market: 'dallas_fort_worth',
     vertical: 'general_contractor',
     relationship_strength: 'trusted',
+    preferred_provider_candidate: true,
     owner: 'marcus-johnson',
     next_action: 'Strategic partnership review',
     next_action_date: '2026-04-10',
@@ -127,6 +129,7 @@ export function seedClients(): void {
         market: seed.market,
         vertical: seed.vertical,
         relationship_strength: seed.relationship_strength,
+        preferred_provider_candidate: seed.preferred_provider_candidate ?? false,
         owner: seed.owner,
         next_action: seed.next_action ?? null,
         next_action_date: seed.next_action_date ?? null,

@@ -126,10 +126,10 @@ describe('Client Validation — Transition Schema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('accepts all valid client states as target', () => {
+  it('accepts all valid client states as target (ERP-13: 6 states)', () => {
     const states = [
       'watchlist', 'target_client', 'developing_relationship',
-      'active_customer', 'strategic_preferred', 'dormant', 'archived',
+      'active_client', 'dormant', 'archived',
     ]
     for (const state of states) {
       const result = clientTransitionSchema.safeParse({
@@ -137,6 +137,16 @@ describe('Client Validation — Transition Schema', () => {
         target_state: state,
       })
       expect(result.success).toBe(true)
+    }
+  })
+
+  it('rejects old removed states (active_customer, strategic_preferred)', () => {
+    for (const state of ['active_customer', 'strategic_preferred']) {
+      const result = clientTransitionSchema.safeParse({
+        client_id: 'abc',
+        target_state: state,
+      })
+      expect(result.success).toBe(false)
     }
   })
 })

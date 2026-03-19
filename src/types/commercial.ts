@@ -114,6 +114,8 @@ export interface Client extends BaseEntity {
   relationship_strength?: ClientRelationshipStrength
   /** Current lifecycle state */
   status: ClientState
+  /** Preferred-Provider Candidate tag (ERP-13: tag on Active Client, not a state) */
+  preferred_provider_candidate: boolean
   /** General notes */
   notes?: string
   /** BD owner user ID */
