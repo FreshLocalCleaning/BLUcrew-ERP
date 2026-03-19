@@ -315,12 +315,12 @@ Command: cross-functional queues and dashboards
 S0: Auth, environment, entity shells, audit/event model, base enums ✅
 S1: Client + Contact core (CRUD, permissions, lifecycle, views) ✅
 S2: Pursuit core (signal→estimate-ready, site walk, closeout plan) ✅
-S3: Estimate + Proposal (pricing, decisions, loss capture)
-S4: Award + Compliance + Handoff (packet tracking, bridge to build)
-S5: Project + Mobilization (PM activation, trip management)
-S6: Change Order + Expansion (CO approvals, growth tasks)
-S7: Integrations + Dashboards (GHL/Jobber sync, reporting, KPIs from ERP-21)
-S8: UAT + Cutover (ERP-18 scenarios, migration rehearsal per ERP-19)
+S3: Estimate + Proposal (pricing, decisions, loss capture) ✅
+S4: Award + Compliance + Handoff (packet tracking, bridge to build) ✅
+S5: Project + Mobilization (PM activation, trip management) ✅
+S6: Change Order + Expansion (CO approvals, growth tasks) ✅
+S7: Integrations + Dashboards (GHL/Jobber sync, reporting, KPIs from ERP-21) ✅
+S8: UAT + Cutover (ERP-18 scenarios, migration rehearsal per ERP-19) ✅
 
 ## KPI DEFINITIONS (from ERP-21)
 - Signal-to-pursuit conversion
