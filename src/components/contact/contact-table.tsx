@@ -52,9 +52,12 @@ const columns = [
           {c.is_champion && (
             <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
           )}
-          <span className="font-medium text-foreground">
+          <Link
+            href={`/contacts/${c.id}`}
+            className="font-medium text-primary hover:underline"
+          >
             {c.first_name} {c.last_name}
-          </span>
+          </Link>
         </div>
       )
     },
