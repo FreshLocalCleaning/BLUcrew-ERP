@@ -42,7 +42,14 @@ export async function createContactAction(
 export async function updateContactAction(
   formData: Record<string, unknown>,
 ): Promise<ActionResult<Contact>> {
-  const parsed = updateContactSchema.safeParse(formData)
+  // Support both 'id' and 'contact_id' as the identifier
+  const normalized = { ...formData }
+  if (normalized.contact_id && !normalized.id) {
+    normalized.id = normalized.contact_id
+    delete normalized.contact_id
+  }
+
+  const parsed = updateContactSchema.safeParse(normalized)
   if (!parsed.success) {
     const firstError = parsed.error.issues[0]
     return { success: false, error: firstError?.message ?? 'Validation failed' }
@@ -73,22 +80,42 @@ export async function listContactsByClientAction(clientId: string): Promise<Acti
 
 /** Log a touch for a contact — increments touch_count and sets last_touch_date. */
 export async function logTouchAction(
-  input: { contact_id: string; notes?: string },
+  input: {
+    contact_id: string
+    notes?: string
+    next_step?: string
+    next_step_due_date?: string
+    touch_type?: string
+  },
 ): Promise<ActionResult<Contact>> {
   const contact = contactDb.getContact(input.contact_id)
   if (!contact) {
     return { success: false, error: 'Contact not found' }
   }
 
+  const changes: Record<string, unknown> = {
+    touch_count: contact.touch_count + 1,
+    last_touch_date: new Date().toISOString(),
+  }
+
+  if (input.next_step) {
+    changes.next_step = input.next_step
+  }
+  if (input.next_step_due_date) {
+    changes.next_step_due_date = input.next_step_due_date
+  }
+
+  const summary = [
+    input.touch_type ? `[${input.touch_type}]` : null,
+    input.notes,
+    input.next_step ? `Next: ${input.next_step}` : null,
+  ].filter(Boolean).join(' — ')
+
   const updated = contactDb.updateContact(
     input.contact_id,
-    {
-      touch_count: contact.touch_count + 1,
-      last_touch_date: new Date().toISOString(),
-      ...(input.notes ? { next_step: input.notes } : {}),
-    },
+    changes,
     'system',
-    `Touch logged${input.notes ? `: ${input.notes}` : ''}`,
+    `Touch logged${summary ? `: ${summary}` : ''}`,
   )
   return { success: true, data: updated }
 }

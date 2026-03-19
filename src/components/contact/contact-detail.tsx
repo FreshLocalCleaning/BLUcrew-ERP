@@ -10,6 +10,9 @@ import {
   CONTACT_RELATIONSHIP_LABELS,
   CONTACT_SOURCE_LABELS,
   CONTACT_PREFERRED_CHANNEL_LABELS,
+  CONTACT_LAYERS,
+  CONTACT_INFLUENCE_LEVELS,
+  CONTACT_RELATIONSHIP_STRENGTHS,
   type Contact,
   type ContactInfluence,
   type ContactRelationshipStrength,
@@ -33,6 +36,9 @@ import {
   Hash,
   Zap,
   ExternalLink,
+  CalendarClock,
+  X,
+  Save,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -87,6 +93,32 @@ function formatTimestamp(iso: string): string {
   })
 }
 
+/** Get color class for a due date */
+function getDueDateColor(iso?: string | null): string {
+  if (!iso) return ''
+  const now = new Date()
+  const due = new Date(iso)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+
+  if (dueDay < today) return 'text-red-600 dark:text-red-400'
+  if (dueDay.getTime() === today.getTime()) return 'text-amber-600 dark:text-amber-400'
+  return 'text-green-600 dark:text-green-400'
+}
+
+function getDueDateLabel(iso?: string | null): string {
+  if (!iso) return ''
+  const now = new Date()
+  const due = new Date(iso)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const diffDays = Math.round((dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`
+  if (diffDays === 0) return 'Due today'
+  return `${diffDays}d remaining`
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -96,19 +128,37 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
   const [contact, setContact] = useState(initial)
   const [touchModalOpen, setTouchModalOpen] = useState(false)
   const [touchNotes, setTouchNotes] = useState('')
+  const [touchNextStep, setTouchNextStep] = useState('')
+  const [touchNextStepDueDate, setTouchNextStepDueDate] = useState('')
+  const [touchType, setTouchType] = useState('')
   const [submittingTouch, setSubmittingTouch] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editData, setEditData] = useState({
+    title: contact.title ?? '',
+    email: contact.email ?? '',
+    phone: contact.phone ?? '',
+    role_type: contact.role_type ?? '',
+    notes: contact.notes ?? '',
+  })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   async function handleLogTouch() {
     setSubmittingTouch(true)
     const result = await logTouchAction({
       contact_id: contact.id,
       notes: touchNotes || undefined,
+      next_step: touchNextStep || undefined,
+      next_step_due_date: touchNextStepDueDate || undefined,
+      touch_type: touchType || undefined,
     })
     if (result.success && result.data) {
       setContact(result.data)
       toast.success(`Touch #${result.data.touch_count} logged`)
       setTouchModalOpen(false)
       setTouchNotes('')
+      setTouchNextStep('')
+      setTouchNextStepDueDate('')
+      setTouchType('')
       router.refresh()
     } else {
       toast.error(result.error ?? 'Failed to log touch')
@@ -116,8 +166,34 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
     setSubmittingTouch(false)
   }
 
+  async function handleSaveEdit() {
+    setSavingEdit(true)
+    try {
+      const result = await updateContactAction({
+        contact_id: contact.id,
+        ...editData,
+      })
+      if (result.success && result.data) {
+        setContact(result.data)
+        toast.success('Contact updated')
+        setEditing(false)
+        router.refresh()
+      } else {
+        toast.error(result.error ?? 'Failed to update')
+      }
+    } catch {
+      toast.error('An unexpected error occurred')
+    }
+    setSavingEdit(false)
+  }
+
   const influenceStyle = INFLUENCE_COLORS[contact.influence]
   const strengthStyle = STRENGTH_COLORS[contact.relationship_strength]
+  const dueDateColor = getDueDateColor(contact.next_step_due_date)
+  const dueDateLabel = getDueDateLabel(contact.next_step_due_date)
+
+  const inputClass =
+    'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring'
 
   return (
     <div className="flex gap-6">
@@ -138,32 +214,104 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
 
         {/* Contact Info Card */}
         <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Contact Information</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <DetailItem icon={User} label="Name" value={`${contact.first_name} ${contact.last_name}`} />
-            <DetailItem icon={FileText} label="Reference ID" value={contact.reference_id} mono />
-            {contact.title && (
-              <DetailItem icon={User} label="Title" value={contact.title} />
-            )}
-            <DetailItem
-              icon={Building2}
-              label="Client"
-              value={contact.client_name}
-              href={`/clients/${contact.client_id}`}
-            />
-            {contact.email && (
-              <DetailItem icon={Mail} label="Email" value={contact.email} href={`mailto:${contact.email}`} />
-            )}
-            {contact.phone && (
-              <DetailItem icon={Phone} label="Phone" value={contact.phone} />
-            )}
-            {contact.linkedin_url && (
-              <DetailItem icon={Linkedin} label="LinkedIn" value="View Profile" href={contact.linkedin_url} external />
-            )}
-            {contact.preferred_channel && (
-              <DetailItem icon={MessageSquare} label="Preferred Channel" value={CONTACT_PREFERRED_CHANNEL_LABELS[contact.preferred_channel]} />
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Contact Information</h2>
+            {editing && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditing(false)}
+                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" /> Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit}
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Save className="h-3.5 w-3.5" /> {savingEdit ? 'Saving...' : 'Save'}
+                </button>
+              </div>
             )}
           </div>
+          {editing ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Title</label>
+                <input
+                  value={editData.title}
+                  onChange={(e) => setEditData(prev => ({ ...prev, title: e.target.value }))}
+                  className={inputClass}
+                  placeholder="Job title"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Email</label>
+                <input
+                  type="email"
+                  value={editData.email}
+                  onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
+                  className={inputClass}
+                  placeholder="Email address"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Phone</label>
+                <input
+                  type="tel"
+                  value={editData.phone}
+                  onChange={(e) => setEditData(prev => ({ ...prev, phone: e.target.value }))}
+                  className={inputClass}
+                  placeholder="Phone number"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Role Type</label>
+                <input
+                  value={editData.role_type}
+                  onChange={(e) => setEditData(prev => ({ ...prev, role_type: e.target.value }))}
+                  className={inputClass}
+                  placeholder="e.g. Senior PM"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Notes</label>
+                <textarea
+                  value={editData.notes}
+                  onChange={(e) => setEditData(prev => ({ ...prev, notes: e.target.value }))}
+                  className={inputClass}
+                  rows={3}
+                  placeholder="General notes..."
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <DetailItem icon={User} label="Name" value={`${contact.first_name} ${contact.last_name}`} />
+              <DetailItem icon={FileText} label="Reference ID" value={contact.reference_id} mono />
+              {contact.title && (
+                <DetailItem icon={User} label="Title" value={contact.title} />
+              )}
+              <DetailItem
+                icon={Building2}
+                label="Client"
+                value={contact.client_name}
+                href={`/clients/${contact.client_id}`}
+              />
+              {contact.email && (
+                <DetailItem icon={Mail} label="Email" value={contact.email} href={`mailto:${contact.email}`} />
+              )}
+              {contact.phone && (
+                <DetailItem icon={Phone} label="Phone" value={contact.phone} />
+              )}
+              {contact.linkedin_url && (
+                <DetailItem icon={Linkedin} label="LinkedIn" value="View Profile" href={contact.linkedin_url} external />
+              )}
+              {contact.preferred_channel && (
+                <DetailItem icon={MessageSquare} label="Preferred Channel" value={CONTACT_PREFERRED_CHANNEL_LABELS[contact.preferred_channel]} />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Classification Card */}
@@ -212,10 +360,30 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
               </span>
             </div>
           </div>
-          {contact.next_step && (
+
+          {/* Next Step with Due Date */}
+          {(contact.next_step || contact.next_step_due_date) && (
             <div className="rounded border border-border bg-muted/30 p-3 mb-3">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Next Step</p>
-              <p className="text-sm text-foreground mt-0.5">{contact.next_step}</p>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Next Step</p>
+                  <p className="text-sm text-foreground mt-0.5">{contact.next_step ?? '—'}</p>
+                </div>
+                {contact.next_step_due_date && (
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Due Date</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <CalendarClock className={cn('h-3.5 w-3.5', dueDateColor)} />
+                      <span className={cn('text-sm font-medium', dueDateColor)}>
+                        {formatDate(contact.next_step_due_date)}
+                      </span>
+                    </div>
+                    <p className={cn('text-xs font-medium mt-0.5', dueDateColor)}>
+                      {dueDateLabel}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -283,7 +451,16 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
           Actions
         </h3>
         <button
-          onClick={() => router.push(`/contacts/${contact.id}/edit`)}
+          onClick={() => {
+            setEditing(true)
+            setEditData({
+              title: contact.title ?? '',
+              email: contact.email ?? '',
+              phone: contact.phone ?? '',
+              role_type: contact.role_type ?? '',
+              notes: contact.notes ?? '',
+            })
+          }}
           className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
         >
           <Pencil className="h-4 w-4 text-muted-foreground" />
@@ -304,6 +481,15 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
             <p className="text-2xl font-bold text-foreground">{contact.touch_count}</p>
             <p className="text-xs text-muted-foreground">Last: {formatDate(contact.last_touch_date)}</p>
           </div>
+          {contact.next_step_due_date && (
+            <div className="rounded-lg border border-border bg-card p-3">
+              <p className="text-xs font-medium uppercase text-muted-foreground">Next Step Due</p>
+              <p className={cn('text-sm font-bold', dueDateColor)}>
+                {formatDate(contact.next_step_due_date)}
+              </p>
+              <p className={cn('text-xs font-medium', dueDateColor)}>{dueDateLabel}</p>
+            </div>
+          )}
           <div className="rounded-lg border border-border bg-card p-3">
             <p className="text-xs font-medium uppercase text-muted-foreground">Created</p>
             <p className="text-sm text-foreground">{formatDate(contact.created_at)}</p>
@@ -324,24 +510,75 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
               Record an interaction with {contact.first_name} {contact.last_name}.
               Touch #{contact.touch_count + 1}.
             </p>
-            <div className="mt-4">
-              <label htmlFor="touch-notes" className="block text-sm font-medium text-foreground">
-                Next Step / Notes (optional)
-              </label>
-              <textarea
-                id="touch-notes"
-                value={touchNotes}
-                onChange={(e) => setTouchNotes(e.target.value)}
-                rows={3}
-                placeholder="e.g. Follow up on Lewisville project timeline..."
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
+            <div className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="touch-type" className="block text-sm font-medium text-foreground">
+                  Type of Touch
+                </label>
+                <select
+                  id="touch-type"
+                  value={touchType}
+                  onChange={(e) => setTouchType(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Select type...</option>
+                  <option value="call">Phone Call</option>
+                  <option value="email">Email</option>
+                  <option value="text">Text Message</option>
+                  <option value="in_person">In Person</option>
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="event">Event</option>
+                  <option value="trailer_visit">Trailer Visit</option>
+                  <option value="luncheon">Luncheon</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="touch-notes" className="block text-sm font-medium text-foreground">
+                  Summary / Notes
+                </label>
+                <textarea
+                  id="touch-notes"
+                  value={touchNotes}
+                  onChange={(e) => setTouchNotes(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Discussed Lewisville project timeline..."
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label htmlFor="touch-next-step" className="block text-sm font-medium text-foreground">
+                  Next Step
+                </label>
+                <input
+                  id="touch-next-step"
+                  type="text"
+                  value={touchNextStep}
+                  onChange={(e) => setTouchNextStep(e.target.value)}
+                  placeholder="e.g. Follow up on pricing..."
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label htmlFor="touch-due-date" className="block text-sm font-medium text-foreground">
+                  Next Step Due Date
+                </label>
+                <input
+                  id="touch-due-date"
+                  type="date"
+                  value={touchNextStepDueDate}
+                  onChange={(e) => setTouchNextStepDueDate(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
             </div>
             <div className="mt-4 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setTouchModalOpen(false)
                   setTouchNotes('')
+                  setTouchNextStep('')
+                  setTouchNextStepDueDate('')
+                  setTouchType('')
                 }}
                 className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
               >

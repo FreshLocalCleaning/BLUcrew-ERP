@@ -8,7 +8,7 @@ import {
   seedClients, seedContacts, seedProjectSignals, seedPursuits,
   seedEstimates, seedProposals, seedAwardHandoffs, seedProjects,
 } from '@/lib/db/seed'
-import type { Contact, Pursuit, Estimate, Proposal } from '@/types/commercial'
+import type { Contact, Pursuit, Estimate, Proposal, AwardHandoff, Project } from '@/types/commercial'
 
 interface ClientDetailPageProps {
   params: Promise<{ id: string }>
@@ -36,6 +36,8 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   const pursuits = query<Pursuit>('pursuits', { client_id: id })
   const estimates = query<Estimate>('estimates', { linked_client_id: id })
   const proposals = query<Proposal>('proposals', { linked_client_id: id })
+  const awards = query<AwardHandoff>('award_handoffs', { linked_client_id: id })
+  const projects = query<Project>('projects', { linked_client_id: id })
 
   return (
     <div className="space-y-6">
@@ -64,6 +66,8 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
         pursuits={pursuits}
         estimates={estimates}
         proposals={proposals}
+        awards={awards}
+        projects={projects}
       />
     </div>
   )

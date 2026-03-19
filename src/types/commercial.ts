@@ -276,6 +276,8 @@ export interface Contact extends BaseEntity {
   notes?: string
   /** Next step text */
   next_step?: string
+  /** Next step due date (ISO string) */
+  next_step_due_date?: string
   /** Last touch date (ISO string) */
   last_touch_date?: string
   /** Touch count */
