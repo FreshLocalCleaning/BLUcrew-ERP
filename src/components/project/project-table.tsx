@@ -21,26 +21,23 @@ import { cn } from '@/lib/utils'
 const columnHelper = createColumnHelper<Project>()
 
 const columns = [
-  columnHelper.accessor('reference_id', {
-    header: 'Ref ID',
-    cell: (info) => (
-      <Link
-        href={`/projects/${info.row.original.id}`}
-        className="font-mono text-xs text-primary hover:underline"
-      >
-        {info.getValue()}
-      </Link>
-    ),
-  }),
   columnHelper.accessor('project_name', {
     header: 'Project Name',
     cell: (info) => (
       <Link
         href={`/projects/${info.row.original.id}`}
-        className="font-medium text-foreground hover:underline"
+        className="font-medium text-primary hover:underline"
       >
         {info.getValue()}
       </Link>
+    ),
+  }),
+  columnHelper.accessor('reference_id', {
+    header: 'Ref ID',
+    cell: (info) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {info.getValue()}
+      </span>
     ),
   }),
   columnHelper.accessor('linked_client_id', {

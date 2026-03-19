@@ -35,8 +35,7 @@ const columns = [
     cell: (info) => (
       <Link
         href={`/change-orders/${info.row.original.id}`}
-        className="font-mono text-sm hover:underline"
-        style={{ color: '#3b82f6' }}
+        className="font-mono text-sm text-primary hover:underline"
       >
         {info.getValue()}
       </Link>

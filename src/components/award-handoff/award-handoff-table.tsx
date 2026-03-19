@@ -32,26 +32,23 @@ function openBlockerCount(blockers: AwardHandoff['startup_blockers']): number {
 }
 
 const columns = [
-  columnHelper.accessor('reference_id', {
-    header: 'Ref ID',
-    cell: (info) => (
-      <Link
-        href={`/handoffs/${info.row.original.id}`}
-        className="font-mono text-xs text-primary hover:underline"
-      >
-        {info.getValue()}
-      </Link>
-    ),
-  }),
   columnHelper.accessor('project_name', {
     header: 'Project',
     cell: (info) => (
       <Link
         href={`/handoffs/${info.row.original.id}`}
-        className="font-medium text-foreground hover:underline"
+        className="font-medium text-primary hover:underline"
       >
         {info.getValue()}
       </Link>
+    ),
+  }),
+  columnHelper.accessor('reference_id', {
+    header: 'Ref ID',
+    cell: (info) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {info.getValue()}
+      </span>
     ),
   }),
   columnHelper.accessor('linked_client_id', {
