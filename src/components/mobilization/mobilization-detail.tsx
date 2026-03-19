@@ -108,6 +108,7 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
   const [editLodgingCheckIn, setEditLodgingCheckIn] = useState(mobilization.lodging_details?.check_in ?? '')
   const [editLodgingCheckOut, setEditLodgingCheckOut] = useState(mobilization.lodging_details?.check_out ?? '')
   const [newEquipItem, setNewEquipItem] = useState('')
+  const [expandedEquipIdx, setExpandedEquipIdx] = useState<number | null>(null)
 
   const actorRoles: Role[] = ['leadership_system_admin', 'pm_ops']
 
@@ -222,6 +223,20 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
 
   function updateEquipStatus(idx: number, status: EquipmentStatus) {
     setEditEquipment(prev => prev.map((item, i) => i === idx ? { ...item, status } : item))
+  }
+
+  function updateEquipName(idx: number, name: string) {
+    setEditEquipment(prev => prev.map((item, i) => i === idx ? { ...item, item: name } : item))
+  }
+
+  function updateEquipNotes(idx: number, notes: string) {
+    setEditEquipment(prev => prev.map((item, i) => i === idx ? { ...item, notes: notes || null } : item))
+  }
+
+  function removeEquipItem(idx: number) {
+    setEditEquipment(prev => prev.filter((_, i) => i !== idx))
+    if (expandedEquipIdx === idx) setExpandedEquipIdx(null)
+    else if (expandedEquipIdx !== null && expandedEquipIdx > idx) setExpandedEquipIdx(expandedEquipIdx - 1)
   }
 
   function addEquipItem() {
@@ -427,16 +442,23 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
                 mobilization.equipment_checklist.length > 0 ? (
                   <div className="space-y-2">
                     {mobilization.equipment_checklist.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between rounded border border-border px-3 py-2">
-                        <span className="text-sm">{item.item}</span>
-                        <span className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
-                          item.status === 'packed' ? 'bg-green-100 text-green-800' :
-                          item.status === 'needed' ? 'bg-red-100 text-red-800' :
-                          item.status === 'rented' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {item.status}
-                        </span>
+                      <div key={i} className="rounded border border-border">
+                        <div className="flex items-center justify-between px-3 py-2">
+                          <div className="flex-1">
+                            <span className="text-sm">{item.item}</span>
+                            {item.notes && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">{item.notes}</p>
+                            )}
+                          </div>
+                          <span className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
+                            item.status === 'packed' ? 'bg-green-100 text-green-800' :
+                            item.status === 'needed' ? 'bg-red-100 text-red-800' :
+                            item.status === 'rented' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {item.status}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -445,21 +467,70 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
                 )
               ) : (
                 <div className="space-y-2">
-                  {editEquipment.map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 rounded border border-border px-3 py-2">
-                      <span className="flex-1 text-sm">{item.item}</span>
-                      <select
-                        value={item.status}
-                        onChange={e => updateEquipStatus(i, e.target.value as EquipmentStatus)}
-                        className="rounded border border-input bg-background px-2 py-1 text-xs"
-                      >
-                        <option value="packed">Packed</option>
-                        <option value="needed">Needed</option>
-                        <option value="rented">Rented</option>
-                        <option value="na">N/A</option>
-                      </select>
-                    </div>
-                  ))}
+                  {editEquipment.map((item, i) => {
+                    const isExpanded = expandedEquipIdx === i
+                    return (
+                      <div key={i} className="rounded border border-border">
+                        <div className="flex items-center gap-2 px-3 py-2">
+                          {/* Expand/collapse toggle */}
+                          <button
+                            type="button"
+                            onClick={() => setExpandedEquipIdx(isExpanded ? null : i)}
+                            className="shrink-0 text-muted-foreground hover:text-foreground text-xs"
+                            title={isExpanded ? 'Collapse' : 'Expand for notes'}
+                          >
+                            {isExpanded ? '▾' : '▸'}
+                          </button>
+                          {/* Editable item name */}
+                          <input
+                            type="text"
+                            value={item.item}
+                            onChange={e => updateEquipName(i, e.target.value)}
+                            className="flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-foreground hover:border-input focus:border-input focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                          {/* Status dropdown */}
+                          <select
+                            value={item.status}
+                            onChange={e => updateEquipStatus(i, e.target.value as EquipmentStatus)}
+                            className={cn(
+                              'rounded border px-2 py-1 text-xs font-medium',
+                              item.status === 'packed' ? 'border-green-300 bg-green-50 text-green-800' :
+                              item.status === 'needed' ? 'border-red-300 bg-red-50 text-red-800' :
+                              item.status === 'rented' ? 'border-blue-300 bg-blue-50 text-blue-800' :
+                              'border-gray-300 bg-gray-50 text-gray-800'
+                            )}
+                          >
+                            <option value="packed">Packed</option>
+                            <option value="needed">Needed</option>
+                            <option value="rented">Rented</option>
+                            <option value="na">N/A</option>
+                          </select>
+                          {/* Delete button */}
+                          <button
+                            type="button"
+                            onClick={() => removeEquipItem(i)}
+                            className="shrink-0 rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                            title="Remove item"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        {/* Expandable notes */}
+                        {isExpanded && (
+                          <div className="border-t border-border px-3 py-2">
+                            <label className="mb-1 block text-[10px] font-medium uppercase text-muted-foreground">Notes</label>
+                            <textarea
+                              value={item.notes ?? ''}
+                              onChange={e => updateEquipNotes(i, e.target.value)}
+                              placeholder="Add notes for this item..."
+                              rows={2}
+                              className={cn(inputClass, 'text-xs')}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                   <div className="flex gap-2 mt-3">
                     <input
                       type="text"
@@ -471,7 +542,13 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
                     />
                     <button
                       onClick={addEquipItem}
-                      className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                      disabled={!newEquipItem.trim()}
+                      className={cn(
+                        'rounded-md px-3 py-1.5 text-sm font-medium',
+                        newEquipItem.trim()
+                          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                          : 'bg-muted text-muted-foreground cursor-not-allowed'
+                      )}
                     >
                       Add
                     </button>
