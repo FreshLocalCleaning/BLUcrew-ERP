@@ -172,6 +172,7 @@ interface SeedContact {
   last_touch_date: string
   touch_count: number
   notes?: string
+  owner_name?: string
 }
 
 const SEED_CONTACTS: SeedContact[] = [
@@ -193,6 +194,7 @@ const SEED_CONTACTS: SeedContact[] = [
     last_touch_date: '2026-03-14',
     touch_count: 24,
     notes: 'Key champion. Has awarded us 3 projects in the last year.',
+    owner_name: 'Antonio',
   },
   {
     first_name: 'Chris',
@@ -211,6 +213,7 @@ const SEED_CONTACTS: SeedContact[] = [
     last_touch_date: '2026-03-10',
     touch_count: 12,
     notes: 'Good working relationship. Prefers text for scheduling.',
+    owner_name: 'Antonio',
   },
   {
     first_name: 'Rachel',
@@ -218,7 +221,7 @@ const SEED_CONTACTS: SeedContact[] = [
     title: 'VP of Operations',
     client_name: 'Rogers-O\'Brien',
     layer: 'exec_owner_rep',
-    role_type: 'VP Ops',
+    role_type: 'VP',
     influence: 'high',
     relationship_strength: 'developing',
     source_channel: 'event',
@@ -228,6 +231,7 @@ const SEED_CONTACTS: SeedContact[] = [
     last_touch_date: '2026-03-05',
     touch_count: 4,
     notes: 'Met at DFW Construction Summit. Interested in our quality process.',
+    owner_name: 'Antonio',
   },
   {
     first_name: 'Jake',
@@ -247,13 +251,14 @@ const SEED_CONTACTS: SeedContact[] = [
     last_touch_date: '2026-03-12',
     touch_count: 31,
     notes: 'Strongest champion at ROC. Always requests us by name.',
+    owner_name: 'Antonio',
   },
   {
     first_name: 'David',
     last_name: 'Park',
     title: 'Preconstruction Manager',
     client_name: 'Balfour Beatty',
-    layer: 'estimator_precon',
+    layer: 'pm_super_field',
     role_type: 'Precon',
     influence: 'medium',
     relationship_strength: 'developing',
@@ -264,6 +269,7 @@ const SEED_CONTACTS: SeedContact[] = [
     last_touch_date: '2026-03-08',
     touch_count: 6,
     notes: 'Responsive to emails. Interested in our estimating approach.',
+    owner_name: 'Antonio',
   },
   {
     first_name: 'Lisa',
@@ -281,6 +287,7 @@ const SEED_CONTACTS: SeedContact[] = [
     last_touch_date: '2026-03-01',
     touch_count: 2,
     notes: 'Referred by David Park. Handles scheduling and compliance docs.',
+    owner_name: 'Cullen',
   },
   {
     first_name: 'Tom',
@@ -288,7 +295,7 @@ const SEED_CONTACTS: SeedContact[] = [
     title: 'Director of Construction',
     client_name: 'HBA Design Build',
     layer: 'exec_owner_rep',
-    role_type: 'Dir Construction',
+    role_type: 'Director',
     influence: 'high',
     relationship_strength: 'new',
     source_channel: 'event',
@@ -299,6 +306,7 @@ const SEED_CONTACTS: SeedContact[] = [
     last_touch_date: '2026-03-15',
     touch_count: 1,
     notes: 'First contact at AGC event. Expressed interest in post-construction services.',
+    owner_name: 'Antonio',
   },
   {
     first_name: 'Maria',
@@ -316,6 +324,7 @@ const SEED_CONTACTS: SeedContact[] = [
     last_touch_date: '2026-03-11',
     touch_count: 8,
     notes: 'Handles all invoicing and payment. Quick to respond.',
+    owner_name: 'Cullen',
   },
 ]
 
@@ -362,6 +371,7 @@ export function seedContacts(): void {
         last_touch_date: seed.last_touch_date,
         touch_count: seed.touch_count,
         notes: seed.notes,
+        owner_name: seed.owner_name,
         owner: client.owner ?? 'system-seed',
       } as any,
       'system-seed',

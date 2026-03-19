@@ -13,12 +13,10 @@ import {
   type ColumnFiltersState,
 } from '@tanstack/react-table'
 import {
-  CONTACT_LAYER_LABELS,
   CONTACT_INFLUENCE_LABELS,
   CONTACT_RELATIONSHIP_LABELS,
   CONTACT_SOURCE_LABELS,
   type Contact,
-  type ContactLayer,
   type ContactInfluence,
   type ContactRelationshipStrength,
 } from '@/types/commercial'
@@ -87,10 +85,10 @@ const columns = [
       </Link>
     ),
   }),
-  columnHelper.accessor('layer', {
-    header: 'Layer',
-    cell: (info) => CONTACT_LAYER_LABELS[info.getValue()],
-    filterFn: 'equals',
+  columnHelper.accessor('owner_name', {
+    header: 'BLU Crew Owner',
+    cell: (info) => info.getValue() ?? '—',
+    filterFn: 'includesString',
   }),
   columnHelper.accessor('role_type', {
     header: 'Role Type',
@@ -195,7 +193,6 @@ export function ContactTable({ contacts }: ContactTableProps) {
   })
 
   // Get unique values for filter dropdowns
-  const uniqueLayers = [...new Set(contacts.map((c) => c.layer))] as ContactLayer[]
   const uniqueInfluences = [...new Set(contacts.map((c) => c.influence))] as ContactInfluence[]
   const uniqueStrengths = [...new Set(contacts.map((c) => c.relationship_strength))] as ContactRelationshipStrength[]
 
@@ -207,7 +204,6 @@ export function ContactTable({ contacts }: ContactTableProps) {
     })
   }
 
-  const activeLayerFilter = columnFilters.find((f) => f.id === 'layer')?.value as string | undefined
   const activeInfluenceFilter = columnFilters.find((f) => f.id === 'influence')?.value as string | undefined
   const activeStrengthFilter = columnFilters.find((f) => f.id === 'relationship_strength')?.value as string | undefined
 
@@ -229,17 +225,6 @@ export function ContactTable({ contacts }: ContactTableProps) {
         {/* Filter dropdowns */}
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
-
-          <select
-            value={activeLayerFilter ?? ''}
-            onChange={(e) => setFilterValue('layer', e.target.value)}
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">All Layers</option>
-            {uniqueLayers.map((l) => (
-              <option key={l} value={l}>{CONTACT_LAYER_LABELS[l]}</option>
-            ))}
-          </select>
 
           <select
             value={activeInfluenceFilter ?? ''}

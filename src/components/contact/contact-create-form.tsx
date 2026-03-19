@@ -114,6 +114,10 @@ export function ContactCreateForm({ clients }: ContactCreateFormProps) {
             <input {...register('company')} type="text" placeholder="e.g. Summit Peak Builders" className={inputClass} />
           </div>
           <div>
+            <label className="mb-1 block text-sm font-medium text-foreground">BLU Crew Owner</label>
+            <input {...register('owner_name')} type="text" placeholder="e.g. Antonio, Cullen" className={inputClass} />
+          </div>
+          <div>
             <label className="mb-1 block text-sm font-medium text-foreground">
               Client <span className="text-red-400">*</span>
             </label>
