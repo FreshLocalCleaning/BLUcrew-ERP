@@ -40,20 +40,24 @@ function formatDate(iso?: string | null): string {
 }
 
 const columns = [
-  columnHelper.accessor('reference_id', {
-    header: 'Ref ID',
+  columnHelper.accessor('stage_name', {
+    header: 'Stage Name',
     cell: (info) => (
       <Link
         href={`/mobilizations/${info.row.original.id}`}
-        className="font-mono text-sm text-primary hover:underline"
+        className="font-medium text-primary hover:underline text-sm"
       >
         {info.getValue()}
       </Link>
     ),
   }),
-  columnHelper.accessor('stage_name', {
-    header: 'Stage Name',
-    cell: (info) => <span className="text-sm">{info.getValue()}</span>,
+  columnHelper.accessor('reference_id', {
+    header: 'Ref ID',
+    cell: (info) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {info.getValue()}
+      </span>
+    ),
   }),
   columnHelper.accessor('status', {
     header: 'Status',
@@ -66,7 +70,13 @@ const columns = [
   }),
   columnHelper.accessor('crew_lead_id', {
     header: 'Crew Lead',
-    cell: (info) => <span className="text-sm">{info.getValue() ?? '—'}</span>,
+    cell: (info) => {
+      const id = info.getValue()
+      if (!id) return <span className="text-sm text-muted-foreground">—</span>
+      // Show readable names for known crew leads
+      const names: Record<string, string> = { 'lead-1': 'Lead 1', 'lead-2': 'Lead 2', cullen: 'Cullen' }
+      return <span className="text-sm">{names[id] ?? id}</span>
+    },
   }),
   columnHelper.accessor('readiness_checklist', {
     header: 'Readiness',

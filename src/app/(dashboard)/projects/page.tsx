@@ -1,5 +1,6 @@
 import { ProjectTable } from '@/components/project/project-table'
 import { listProjects } from '@/lib/db/projects'
+import { listClients } from '@/lib/db/clients'
 import {
   seedClients,
   seedContacts,
@@ -21,6 +22,8 @@ export default function ProjectsPage() {
   seedAwardHandoffs()
   seedProjects()
   const projects = listProjects()
+  const clients = listClients()
+  const clientNameMap = Object.fromEntries(clients.map(c => [c.id, c.name]))
 
   return (
     <div className="space-y-6">
@@ -31,7 +34,7 @@ export default function ProjectsPage() {
         </p>
       </div>
 
-      <ProjectTable projects={projects} />
+      <ProjectTable projects={projects} clientNameMap={clientNameMap} />
     </div>
   )
 }

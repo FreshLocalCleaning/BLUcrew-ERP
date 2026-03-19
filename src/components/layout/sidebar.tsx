@@ -43,6 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Clients', href: '/clients', icon: Users },
       { label: 'Contacts', href: '/contacts', icon: Contact },
+      { label: 'Signals', href: '/project-signals', icon: Zap },
       { label: 'Pursuits', href: '/pursuits', icon: Target },
     ],
   },

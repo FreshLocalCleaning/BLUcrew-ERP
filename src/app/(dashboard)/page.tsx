@@ -1,12 +1,3 @@
-import {
-  Zap,
-  Clock,
-  TrendingUp,
-  Target,
-  FileText,
-  Users,
-  Truck,
-} from 'lucide-react'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { PipelineChart } from '@/components/dashboard/pipeline-chart'
 import { ProposalAgingChart } from '@/components/dashboard/proposal-aging-chart'
@@ -78,42 +69,42 @@ export default function HomePage() {
           label="Signal→Pursuit"
           value={`${Math.round(signalConv.rate * 100)}%`}
           subtitle={`${signalConv.converted} of ${signalConv.passed} signals`}
-          icon={Zap}
+          icon="zap"
           color="text-blue-400"
         />
         <KpiCard
           label="Est. Ready Cycle"
           value={`${estCycle.median_days}d`}
           subtitle={`${estCycle.sample_count} pursuits`}
-          icon={Clock}
+          icon="clock"
           color="text-cyan-400"
         />
         <KpiCard
           label="Win Rate (90d)"
           value={`${Math.round(wr.rate * 100)}%`}
           subtitle={`${wr.accepted}W / ${wr.rejected}L`}
-          icon={TrendingUp}
+          icon="trending_up"
           color="text-green-400"
         />
         <KpiCard
           label="Active Proposals"
           value={String(proposalAging.total)}
           subtitle="Delivered / In Review"
-          icon={FileText}
+          icon="file_text"
           color="text-amber-400"
         />
         <KpiCard
           label="Awaiting PM Claim"
           value={String(pmClaim)}
           subtitle="Handoff posted"
-          icon={Users}
+          icon="users"
           color="text-purple-400"
         />
         <KpiCard
           label="Readiness Pass"
           value={`${Math.round(readiness.rate * 100)}%`}
           subtitle={`${readiness.first_attempt} of ${readiness.total} mobs`}
-          icon={Truck}
+          icon="truck"
           color="text-emerald-400"
         />
       </div>

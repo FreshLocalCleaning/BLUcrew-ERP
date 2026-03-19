@@ -1,5 +1,6 @@
 import { AwardHandoffTable } from '@/components/award-handoff/award-handoff-table'
 import { listAwardHandoffs } from '@/lib/db/award-handoffs'
+import { listClients } from '@/lib/db/clients'
 import {
   seedClients,
   seedContacts,
@@ -19,6 +20,8 @@ export default function HandoffsPage() {
   seedProposals()
   seedAwardHandoffs()
   const awardHandoffs = listAwardHandoffs()
+  const clients = listClients()
+  const clientNameMap = Object.fromEntries(clients.map(c => [c.id, c.name]))
 
   return (
     <div className="space-y-6">
@@ -29,7 +32,7 @@ export default function HandoffsPage() {
         </p>
       </div>
 
-      <AwardHandoffTable awardHandoffs={awardHandoffs} />
+      <AwardHandoffTable awardHandoffs={awardHandoffs} clientNameMap={clientNameMap} />
     </div>
   )
 }

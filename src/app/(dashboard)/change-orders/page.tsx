@@ -1,5 +1,6 @@
 import { ChangeOrderTable } from '@/components/change-order/change-order-table'
 import { listChangeOrders } from '@/lib/db/change-orders'
+import { listProjects } from '@/lib/db/projects'
 import {
   seedClients,
   seedContacts,
@@ -25,6 +26,8 @@ export default function ChangeOrdersPage() {
   seedMobilizations()
   seedChangeOrders()
   const changeOrders = listChangeOrders()
+  const projects = listProjects()
+  const projectNameMap = Object.fromEntries(projects.map(p => [p.id, p.project_name]))
 
   return (
     <div className="space-y-6">
@@ -35,7 +38,7 @@ export default function ChangeOrdersPage() {
         </p>
       </div>
 
-      <ChangeOrderTable changeOrders={changeOrders} />
+      <ChangeOrderTable changeOrders={changeOrders} projectNameMap={projectNameMap} />
     </div>
   )
 }

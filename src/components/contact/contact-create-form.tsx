@@ -57,7 +57,7 @@ export function ContactCreateForm({ clients }: ContactCreateFormProps) {
         toast.success(
           `Contact "${result.data.first_name} ${result.data.last_name}" created (${result.data.reference_id})`,
         )
-        router.push('/contacts')
+        router.push(`/contacts/${result.data.id}`)
       } else {
         toast.error(result.error ?? 'Failed to create contact')
       }

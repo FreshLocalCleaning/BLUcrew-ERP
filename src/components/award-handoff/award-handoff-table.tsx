@@ -32,39 +32,37 @@ function openBlockerCount(blockers: AwardHandoff['startup_blockers']): number {
 }
 
 const columns = [
-  columnHelper.accessor('reference_id', {
-    header: 'Ref ID',
-    cell: (info) => (
-      <Link
-        href={`/handoffs/${info.row.original.id}`}
-        className="font-mono text-xs text-primary hover:underline"
-      >
-        {info.getValue()}
-      </Link>
-    ),
-  }),
   columnHelper.accessor('project_name', {
     header: 'Project',
     cell: (info) => (
       <Link
         href={`/handoffs/${info.row.original.id}`}
-        className="font-medium text-foreground hover:underline"
+        className="font-medium text-primary hover:underline"
       >
         {info.getValue()}
       </Link>
     ),
   }),
+  columnHelper.accessor('reference_id', {
+    header: 'Ref ID',
+    cell: (info) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {info.getValue()}
+      </span>
+    ),
+  }),
   columnHelper.accessor('linked_client_id', {
     header: 'Client',
     cell: (info) => {
-      const snapshot = info.row.original.accepted_baseline_snapshot
-      const clientName = (snapshot?.project_name as string) || '—'
+      const id = info.getValue()
+      const meta = info.table.options.meta as Record<string, Record<string, string>> | undefined
+      const name = meta?.clientNameMap?.[id] ?? id
       return (
         <Link
-          href={`/clients/${info.getValue()}`}
+          href={`/clients/${id}`}
           className="text-sm text-primary hover:underline"
         >
-          {clientName}
+          {name}
         </Link>
       )
     },
@@ -80,9 +78,12 @@ const columns = [
   }),
   columnHelper.accessor('pm_claim_user_id', {
     header: 'PM Assigned',
-    cell: (info) => (
-      <span className="text-sm">{info.getValue() ?? '—'}</span>
-    ),
+    cell: (info) => {
+      const id = info.getValue()
+      if (!id) return <span className="text-sm text-muted-foreground">—</span>
+      const pmNames: Record<string, string> = { cullen: 'Cullen', antonio: 'Antonio', system: 'System' }
+      return <span className="text-sm">{pmNames[id] ?? id}</span>
+    },
   }),
   columnHelper.accessor('compliance_tracker', {
     header: 'Compliance',
@@ -113,9 +114,10 @@ const columns = [
 
 interface AwardHandoffTableProps {
   awardHandoffs: AwardHandoff[]
+  clientNameMap?: Record<string, string>
 }
 
-export function AwardHandoffTable({ awardHandoffs }: AwardHandoffTableProps) {
+export function AwardHandoffTable({ awardHandoffs, clientNameMap }: AwardHandoffTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -132,6 +134,7 @@ export function AwardHandoffTable({ awardHandoffs }: AwardHandoffTableProps) {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    meta: { clientNameMap: clientNameMap ?? {} },
   })
 
   return (
