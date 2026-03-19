@@ -196,11 +196,12 @@ describe('Pursuit Validation — Transition Schema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('accepts all valid pursuit stages', () => {
+  it('accepts all valid pursuit stages (ERP-13: 12 stages)', () => {
     const stages = [
-      'project_signal_received', 'qualification_underway', 'site_walk_scheduled',
-      'site_walk_complete', 'closeout_plan_drafted', 'closeout_plan_approved',
-      'scope_development', 'internal_review', 'estimate_ready', 'no_bid',
+      'project_signal_received', 'qualification_underway', 'qualified_pursuit',
+      'preconstruction_packet_open', 'site_walk_scheduled', 'site_walk_complete',
+      'pursue_no_bid_review', 'blu_closeout_plan_sent', 'estimate_ready',
+      'hold', 'dormant', 'no_bid',
     ]
     for (const s of stages) {
       const result = pursuitTransitionSchema.safeParse({
@@ -208,6 +209,16 @@ describe('Pursuit Validation — Transition Schema', () => {
         target_stage: s,
       })
       expect(result.success).toBe(true)
+    }
+  })
+
+  it('rejects old removed stages', () => {
+    for (const s of ['closeout_plan_drafted', 'closeout_plan_approved', 'scope_development', 'internal_review']) {
+      const result = pursuitTransitionSchema.safeParse({
+        pursuit_id: 'abc',
+        target_stage: s,
+      })
+      expect(result.success).toBe(false)
     }
   })
 })

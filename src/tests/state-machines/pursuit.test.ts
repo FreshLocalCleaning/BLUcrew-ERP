@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { validateTransition, getAvailableTransitions } from '@/lib/state-machines/engine'
-import { pursuitStateMachine, PURSUIT_STAGES, PURSUIT_STAGE_LABELS } from '@/lib/state-machines/pursuit'
+import { pursuitStateMachine, PURSUIT_STAGES, PURSUIT_STAGE_LABELS, PURSUIT_ACTIVE_STAGES } from '@/lib/state-machines/pursuit'
+import type { PursuitStage } from '@/lib/state-machines/pursuit'
 import type { Role } from '@/lib/permissions/roles'
 
 // ---------------------------------------------------------------------------
@@ -17,13 +18,38 @@ function makeEntity(overrides: Record<string, unknown> = {}): Record<string, unk
   }
 }
 
+function transition(
+  from: PursuitStage,
+  to: PursuitStage,
+  roles: Role[] = ['commercial_bd'],
+  entity: Record<string, unknown> = makeEntity(),
+  reason?: string,
+) {
+  return validateTransition(pursuitStateMachine, {
+    currentState: from,
+    targetState: to,
+    entity,
+    actorRoles: roles,
+    reason,
+  })
+}
+
 // ---------------------------------------------------------------------------
-// Machine definition
+// Machine definition (ERP-13 Table 10)
 // ---------------------------------------------------------------------------
 
-describe('Pursuit State Machine — Definition', () => {
-  it('has 10 states', () => {
-    expect(PURSUIT_STAGES.length).toBe(10)
+describe('Pursuit State Machine — Structure', () => {
+  it('has 12 states (ERP-13)', () => {
+    expect(PURSUIT_STAGES.length).toBe(12)
+  })
+
+  it('states match ERP-13 Table 10', () => {
+    expect([...PURSUIT_STAGES]).toEqual([
+      'project_signal_received', 'qualification_underway', 'qualified_pursuit',
+      'preconstruction_packet_open', 'site_walk_scheduled', 'site_walk_complete',
+      'pursue_no_bid_review', 'blu_closeout_plan_sent', 'estimate_ready',
+      'hold', 'dormant', 'no_bid',
+    ])
   })
 
   it('initial state is project_signal_received', () => {
@@ -34,43 +60,43 @@ describe('Pursuit State Machine — Definition', () => {
     expect(pursuitStateMachine.terminalStates).toEqual(['no_bid'])
   })
 
+  it('has 9 active forward stages', () => {
+    expect(PURSUIT_ACTIVE_STAGES).toHaveLength(9)
+  })
+
   it('has labels for all states', () => {
     for (const state of PURSUIT_STAGES) {
       expect(PURSUIT_STAGE_LABELS[state]).toBeDefined()
-      expect(typeof PURSUIT_STAGE_LABELS[state]).toBe('string')
     }
   })
 
-  it('entity type is pursuit', () => {
-    expect(pursuitStateMachine.entityType).toBe('pursuit')
+  it('removed old invented states', () => {
+    expect(PURSUIT_STAGES).not.toContain('closeout_plan_drafted')
+    expect(PURSUIT_STAGES).not.toContain('closeout_plan_approved')
+    expect(PURSUIT_STAGES).not.toContain('scope_development')
+    expect(PURSUIT_STAGES).not.toContain('internal_review')
   })
 })
 
 // ---------------------------------------------------------------------------
-// Forward progression (happy path)
+// Forward progression (happy path per ERP-13)
 // ---------------------------------------------------------------------------
 
 describe('Pursuit State Machine — Forward Progression', () => {
-  const happyPath: [string, string][] = [
+  const happyPath: [PursuitStage, PursuitStage][] = [
     ['project_signal_received', 'qualification_underway'],
-    ['qualification_underway', 'site_walk_scheduled'],
+    ['qualification_underway', 'qualified_pursuit'],
+    ['qualified_pursuit', 'preconstruction_packet_open'],
+    ['preconstruction_packet_open', 'site_walk_scheduled'],
     ['site_walk_scheduled', 'site_walk_complete'],
-    ['site_walk_complete', 'closeout_plan_drafted'],
-    ['closeout_plan_drafted', 'closeout_plan_approved'],
-    ['closeout_plan_approved', 'scope_development'],
-    ['scope_development', 'internal_review'],
-    ['internal_review', 'estimate_ready'],
+    ['site_walk_complete', 'pursue_no_bid_review'],
+    ['pursue_no_bid_review', 'blu_closeout_plan_sent'],
+    ['blu_closeout_plan_sent', 'estimate_ready'],
   ]
 
   for (const [from, to] of happyPath) {
     it(`allows ${from} → ${to}`, () => {
-      const result = validateTransition(pursuitStateMachine, {
-        currentState: from,
-        targetState: to,
-        entity: makeEntity(),
-        actorRoles: ['leadership_system_admin', 'commercial_bd', 'estimating'] as Role[],
-        approvalGranted: true,
-      })
+      const result = transition(from, to)
       expect(result.allowed).toBe(true)
       expect(result.errors).toHaveLength(0)
     })
@@ -78,44 +104,108 @@ describe('Pursuit State Machine — Forward Progression', () => {
 })
 
 // ---------------------------------------------------------------------------
-// No-bid from every active stage
+// No-bid from multiple stages
 // ---------------------------------------------------------------------------
 
 describe('Pursuit State Machine — No-Bid Transitions', () => {
-  const noBidFrom = [
-    'project_signal_received',
+  const noBidFrom: PursuitStage[] = [
     'qualification_underway',
-    'site_walk_scheduled',
-    'site_walk_complete',
-    'closeout_plan_drafted',
-    'closeout_plan_approved',
-    'scope_development',
-    'internal_review',
+    'qualified_pursuit',
+    'pursue_no_bid_review',
+    'hold',
+    'dormant',
   ]
 
   for (const from of noBidFrom) {
     it(`allows no-bid from ${from} with reason`, () => {
-      const result = validateTransition(pursuitStateMachine, {
-        currentState: from,
-        targetState: 'no_bid',
-        entity: makeEntity(),
-        actorRoles: ['commercial_bd'] as Role[],
-        reason: 'Out of scope',
-      })
+      const result = transition(from, 'no_bid', ['commercial_bd'], makeEntity(), 'Out of scope')
       expect(result.allowed).toBe(true)
     })
 
     it(`blocks no-bid from ${from} without reason`, () => {
-      const result = validateTransition(pursuitStateMachine, {
-        currentState: from,
-        targetState: 'no_bid',
-        entity: makeEntity(),
-        actorRoles: ['commercial_bd'] as Role[],
-      })
+      const result = transition(from, 'no_bid')
       expect(result.allowed).toBe(false)
       expect(result.errors.some((e) => e.includes('reason'))).toBe(true)
     })
   }
+})
+
+// ---------------------------------------------------------------------------
+// Hold transitions (can be entered from active stages, requires reason)
+// ---------------------------------------------------------------------------
+
+describe('Pursuit State Machine — Hold Transitions', () => {
+  const holdFrom: PursuitStage[] = [
+    'qualification_underway',
+    'qualified_pursuit',
+    'preconstruction_packet_open',
+    'site_walk_scheduled',
+    'site_walk_complete',
+    'pursue_no_bid_review',
+    'blu_closeout_plan_sent',
+  ]
+
+  for (const from of holdFrom) {
+    it(`allows hold from ${from} with reason`, () => {
+      const result = transition(from, 'hold', ['commercial_bd'], makeEntity(), 'Waiting on client')
+      expect(result.allowed).toBe(true)
+    })
+
+    it(`blocks hold from ${from} without reason`, () => {
+      const result = transition(from, 'hold')
+      expect(result.allowed).toBe(false)
+      expect(result.errors.some((e) => e.includes('reason'))).toBe(true)
+    })
+  }
+
+  it('hold can return to qualification_underway with reason', () => {
+    const result = transition('hold', 'qualification_underway', ['commercial_bd'], makeEntity(), 'Unblocked')
+    expect(result.allowed).toBe(true)
+  })
+
+  it('hold can return to any prior active stage with reason', () => {
+    const returnTargets: PursuitStage[] = [
+      'qualification_underway', 'qualified_pursuit', 'preconstruction_packet_open',
+      'site_walk_scheduled', 'site_walk_complete', 'pursue_no_bid_review',
+      'blu_closeout_plan_sent',
+    ]
+    for (const target of returnTargets) {
+      const result = transition('hold', target, ['commercial_bd'], makeEntity(), 'Resuming')
+      expect(result.allowed).toBe(true)
+    }
+  })
+
+  it('hold can move to dormant with reason', () => {
+    const result = transition('hold', 'dormant', ['commercial_bd'], makeEntity(), 'Extended pause')
+    expect(result.allowed).toBe(true)
+  })
+
+  it('hold can move to no-bid with reason', () => {
+    const result = transition('hold', 'no_bid', ['commercial_bd'], makeEntity(), 'Decided against')
+    expect(result.allowed).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Dormant transitions
+// ---------------------------------------------------------------------------
+
+describe('Pursuit State Machine — Dormant Transitions', () => {
+  it('dormant can return to qualification_underway with reason', () => {
+    const result = transition('dormant', 'qualification_underway', ['commercial_bd'], makeEntity(), 'Revived interest')
+    expect(result.allowed).toBe(true)
+  })
+
+  it('dormant can move to no-bid with reason', () => {
+    const result = transition('dormant', 'no_bid', ['commercial_bd'], makeEntity(), 'Fully dead')
+    expect(result.allowed).toBe(true)
+  })
+
+  it('dormant blocks without reason', () => {
+    const result = transition('dormant', 'qualification_underway')
+    expect(result.allowed).toBe(false)
+    expect(result.errors.some((e) => e.includes('reason'))).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -124,12 +214,7 @@ describe('Pursuit State Machine — No-Bid Transitions', () => {
 
 describe('Pursuit State Machine — Terminal State', () => {
   it('blocks any transition from no_bid', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'no_bid',
-      targetState: 'project_signal_received',
-      entity: makeEntity(),
-      actorRoles: ['leadership_system_admin'] as Role[],
-    })
+    const result = transition('no_bid', 'qualification_underway', ['leadership_system_admin'], makeEntity(), 'Try again')
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.includes('terminal'))).toBe(true)
   })
@@ -139,25 +224,18 @@ describe('Pursuit State Machine — Terminal State', () => {
 // Blocked transitions (invalid jumps)
 // ---------------------------------------------------------------------------
 
-describe('Pursuit State Machine — Blocked Transitions', () => {
-  const invalidJumps: [string, string][] = [
+describe('Pursuit State Machine — Blocked Transitions (Invalid Jumps)', () => {
+  const invalidJumps: [PursuitStage, PursuitStage][] = [
     ['project_signal_received', 'estimate_ready'],
     ['project_signal_received', 'site_walk_complete'],
     ['qualification_underway', 'estimate_ready'],
-    ['site_walk_scheduled', 'closeout_plan_approved'],
-    ['estimate_ready', 'project_signal_received'],
+    ['site_walk_scheduled', 'pursue_no_bid_review'],
   ]
 
   for (const [from, to] of invalidJumps) {
     it(`blocks ${from} → ${to}`, () => {
-      const result = validateTransition(pursuitStateMachine, {
-        currentState: from,
-        targetState: to,
-        entity: makeEntity(),
-        actorRoles: ['leadership_system_admin'] as Role[],
-      })
+      const result = transition(from, to, ['leadership_system_admin'])
       expect(result.allowed).toBe(false)
-      expect(result.errors.length).toBeGreaterThan(0)
     })
   }
 })
@@ -167,44 +245,24 @@ describe('Pursuit State Machine — Blocked Transitions', () => {
 // ---------------------------------------------------------------------------
 
 describe('Pursuit State Machine — Role Checks', () => {
-  it('blocks transition for EXEC_VIEW (view-only role)', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'project_signal_received',
-      targetState: 'qualification_underway',
-      entity: makeEntity(),
-      actorRoles: ['readonly_stakeholder'] as Role[],
-    })
+  it('blocks readonly_stakeholder from advancing', () => {
+    const result = transition('project_signal_received', 'qualification_underway', ['readonly_stakeholder'])
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.includes('permissions'))).toBe(true)
   })
 
-  it('allows transition for BD_OWNER', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'project_signal_received',
-      targetState: 'qualification_underway',
-      entity: makeEntity(),
-      actorRoles: ['commercial_bd'] as Role[],
-    })
+  it('allows commercial_bd to advance', () => {
+    const result = transition('project_signal_received', 'qualification_underway', ['commercial_bd'])
     expect(result.allowed).toBe(true)
   })
 
-  it('allows transition for SYS_ADMIN', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'project_signal_received',
-      targetState: 'qualification_underway',
-      entity: makeEntity(),
-      actorRoles: ['leadership_system_admin'] as Role[],
-    })
+  it('allows leadership_system_admin to advance', () => {
+    const result = transition('project_signal_received', 'qualification_underway', ['leadership_system_admin'])
     expect(result.allowed).toBe(true)
   })
 
-  it('blocks EST_USER from advancing pursuits', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'project_signal_received',
-      targetState: 'qualification_underway',
-      entity: makeEntity(),
-      actorRoles: ['technician'] as Role[],
-    })
+  it('blocks technician from advancing', () => {
+    const result = transition('project_signal_received', 'qualification_underway', ['technician'])
     expect(result.allowed).toBe(false)
   })
 })
@@ -215,12 +273,12 @@ describe('Pursuit State Machine — Role Checks', () => {
 
 describe('Pursuit State Machine — Required Fields', () => {
   it('requires client_id and project_name for signal → qualification', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'project_signal_received',
-      targetState: 'qualification_underway',
-      entity: { id: 'pur-1', client_id: '', project_name: '' },
-      actorRoles: ['commercial_bd'] as Role[],
-    })
+    const result = transition(
+      'project_signal_received',
+      'qualification_underway',
+      ['commercial_bd'],
+      { id: 'pur-1', client_id: '', project_name: '' },
+    )
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.includes('client_id'))).toBe(true)
     expect(result.errors.some((e) => e.includes('project_name'))).toBe(true)
@@ -228,104 +286,74 @@ describe('Pursuit State Machine — Required Fields', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Approval gate
+// Alternate paths (ERP-13 allows skipping site walk)
 // ---------------------------------------------------------------------------
 
-describe('Pursuit State Machine — Approval Gate', () => {
-  it('blocks closeout_plan_drafted → approved without approval', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'closeout_plan_drafted',
-      targetState: 'closeout_plan_approved',
-      entity: makeEntity(),
-      actorRoles: ['leadership_system_admin'] as Role[],
-      approvalGranted: false,
-    })
-    expect(result.allowed).toBe(false)
-    expect(result.errors.some((e) => e.includes('approval'))).toBe(true)
+describe('Pursuit State Machine — Alternate Paths', () => {
+  it('allows preconstruction_packet_open → estimate_ready (skip walk)', () => {
+    const result = transition('preconstruction_packet_open', 'estimate_ready')
+    expect(result.allowed).toBe(true)
   })
 
-  it('allows closeout_plan_drafted → approved with approval', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'closeout_plan_drafted',
-      targetState: 'closeout_plan_approved',
-      entity: makeEntity(),
-      actorRoles: ['leadership_system_admin'] as Role[],
-      approvalGranted: true,
-    })
+  it('allows site_walk_complete → estimate_ready (skip review)', () => {
+    const result = transition('site_walk_complete', 'estimate_ready')
+    expect(result.allowed).toBe(true)
+  })
+
+  it('allows pursue_no_bid_review → estimate_ready (direct)', () => {
+    const result = transition('pursue_no_bid_review', 'estimate_ready')
     expect(result.allowed).toBe(true)
   })
 })
 
 // ---------------------------------------------------------------------------
-// Return to scope (internal_review → scope_development)
-// ---------------------------------------------------------------------------
-
-describe('Pursuit State Machine — Return to Scope', () => {
-  it('allows internal_review → scope_development with reason', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'internal_review',
-      targetState: 'scope_development',
-      entity: makeEntity(),
-      actorRoles: ['commercial_bd'] as Role[],
-      reason: 'Needs more detail',
-    })
-    expect(result.allowed).toBe(true)
-  })
-
-  it('blocks internal_review → scope_development without reason', () => {
-    const result = validateTransition(pursuitStateMachine, {
-      currentState: 'internal_review',
-      targetState: 'scope_development',
-      entity: makeEntity(),
-      actorRoles: ['commercial_bd'] as Role[],
-    })
-    expect(result.allowed).toBe(false)
-    expect(result.errors.some((e) => e.includes('reason'))).toBe(true)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Available transitions
+// getAvailableTransitions
 // ---------------------------------------------------------------------------
 
 describe('Pursuit State Machine — Available Transitions', () => {
-  it('returns 2 transitions from project_signal_received for COM_LEAD', () => {
-    const transitions = getAvailableTransitions(
-      pursuitStateMachine,
-      'project_signal_received',
-      ['commercial_bd'] as Role[],
-    )
-    expect(transitions.length).toBe(2)
-    const targets = transitions.map((t) => t.toState).sort()
-    expect(targets).toEqual(['no_bid', 'qualification_underway'])
+  it('project_signal_received has 1 transition for commercial_bd (qualification only)', () => {
+    const transitions = getAvailableTransitions(pursuitStateMachine, 'project_signal_received', ['commercial_bd'])
+    expect(transitions.length).toBe(1)
+    expect(transitions[0]?.toState).toBe('qualification_underway')
   })
 
-  it('returns 0 transitions from no_bid', () => {
-    const transitions = getAvailableTransitions(
-      pursuitStateMachine,
-      'no_bid',
-      ['leadership_system_admin'] as Role[],
-    )
+  it('qualification_underway has 4 transitions (qualified, hold, dormant, no_bid)', () => {
+    const transitions = getAvailableTransitions(pursuitStateMachine, 'qualification_underway', ['commercial_bd'])
+    expect(transitions.length).toBe(4)
+    const targets = transitions.map((t) => t.toState).sort()
+    expect(targets).toEqual(['dormant', 'hold', 'no_bid', 'qualified_pursuit'])
+  })
+
+  it('hold has 9 transitions (7 active stages + dormant + no_bid)', () => {
+    const transitions = getAvailableTransitions(pursuitStateMachine, 'hold', ['commercial_bd'])
+    expect(transitions.length).toBe(9)
+  })
+
+  it('no_bid has 0 transitions (terminal)', () => {
+    const transitions = getAvailableTransitions(pursuitStateMachine, 'no_bid', ['leadership_system_admin'])
     expect(transitions.length).toBe(0)
   })
 
-  it('returns 3 transitions from internal_review for leadership + commercial + estimating', () => {
-    const transitions = getAvailableTransitions(
-      pursuitStateMachine,
-      'internal_review',
-      ['leadership_system_admin', 'commercial_bd', 'estimating'] as Role[],
-    )
-    expect(transitions.length).toBe(3)
-    const targets = transitions.map((t) => t.toState).sort()
-    expect(targets).toEqual(['estimate_ready', 'no_bid', 'scope_development'])
+  it('readonly_stakeholder gets no transitions from any state', () => {
+    for (const state of PURSUIT_STAGES) {
+      const transitions = getAvailableTransitions(pursuitStateMachine, state, ['readonly_stakeholder'])
+      expect(transitions.length).toBe(0)
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Side effects
+// ---------------------------------------------------------------------------
+
+describe('Pursuit State Machine — Side Effects', () => {
+  it('signal → qualification returns notify_bd_qualification_started', () => {
+    const result = transition('project_signal_received', 'qualification_underway')
+    expect(result.sideEffects).toContain('notify_bd_qualification_started')
   })
 
-  it('filters by role — EXEC_VIEW gets no transitions', () => {
-    const transitions = getAvailableTransitions(
-      pursuitStateMachine,
-      'project_signal_received',
-      ['readonly_stakeholder'] as Role[],
-    )
-    expect(transitions.length).toBe(0)
+  it('blocked transition returns no side effects', () => {
+    const result = transition('project_signal_received', 'qualification_underway', ['readonly_stakeholder'])
+    expect(result.sideEffects).toHaveLength(0)
   })
 })

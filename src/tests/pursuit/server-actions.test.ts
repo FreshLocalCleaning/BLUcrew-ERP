@@ -80,11 +80,16 @@ describe('Pursuit Server Actions — Transition', () => {
     expect(result.data?.stage).toBe('qualification_underway')
   })
 
-  it('transitions to no_bid with reason', async () => {
+  it('transitions to no_bid with reason (from qualification_underway)', async () => {
     const pursuit = createPursuit(
       { project_name: 'Test', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
+    // Must go through qualification first (no direct no-bid from signal)
+    await transitionPursuitAction({
+      pursuit_id: pursuit.id,
+      target_stage: 'qualification_underway',
+    })
     const result = await transitionPursuitAction({
       pursuit_id: pursuit.id,
       target_stage: 'no_bid',
@@ -97,7 +102,7 @@ describe('Pursuit Server Actions — Transition', () => {
 
   it('rejects no_bid without reason', async () => {
     const pursuit = createPursuit(
-      { project_name: 'Test', client_id: 'c1', client_name: 'C1' },
+      { project_name: 'Test', client_id: 'c1', client_name: 'C1', stage: 'qualification_underway' },
       'actor-1',
     )
     const result = await transitionPursuitAction({

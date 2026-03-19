@@ -2,30 +2,33 @@
  * Pursuit State Machine
  *
  * Pure logic — no database dependency.
- * CORE-02: Project pursuit qualification and preconstruction development.
+ * ERP-13 Table 10: Pursuit stage pipeline.
  *
- * Stages:
- *   Project Signal Received → Qualification Underway → Site Walk Scheduled →
- *   Site Walk Complete → Closeout Plan Drafted → Closeout Plan Approved →
- *   Scope Development → Internal Review → Estimate Ready → No Bid
+ * 12 stages:
+ *   Project Signal Received → Qualification Underway → Qualified Pursuit →
+ *   Preconstruction Packet Open → Site Walk Scheduled → Site Walk Complete →
+ *   Pursue/No-Bid Review → BLU Closeout Plan Sent → Estimate Ready →
+ *   Hold → Dormant → No Bid
  */
 
 import type { StateMachineDef } from './engine'
 
 // ---------------------------------------------------------------------------
-// Pursuit Stages
+// Pursuit Stages (ERP-13 Table 10)
 // ---------------------------------------------------------------------------
 
 export const PURSUIT_STAGES = [
   'project_signal_received',
   'qualification_underway',
+  'qualified_pursuit',
+  'preconstruction_packet_open',
   'site_walk_scheduled',
   'site_walk_complete',
-  'closeout_plan_drafted',
-  'closeout_plan_approved',
-  'scope_development',
-  'internal_review',
+  'pursue_no_bid_review',
+  'blu_closeout_plan_sent',
   'estimate_ready',
+  'hold',
+  'dormant',
   'no_bid',
 ] as const
 
@@ -34,31 +37,33 @@ export type PursuitStage = (typeof PURSUIT_STAGES)[number]
 export const PURSUIT_STAGE_LABELS: Record<PursuitStage, string> = {
   project_signal_received: 'Project Signal Received',
   qualification_underway: 'Qualification Underway',
+  qualified_pursuit: 'Qualified Pursuit',
+  preconstruction_packet_open: 'Preconstruction Packet Open',
   site_walk_scheduled: 'Site Walk Scheduled',
   site_walk_complete: 'Site Walk Complete',
-  closeout_plan_drafted: 'Closeout Plan Drafted',
-  closeout_plan_approved: 'Closeout Plan Approved',
-  scope_development: 'Scope Development',
-  internal_review: 'Internal Review',
+  pursue_no_bid_review: 'Pursue / No-Bid Review',
+  blu_closeout_plan_sent: 'BLU Closeout Plan Sent',
   estimate_ready: 'Estimate Ready',
+  hold: 'Hold',
+  dormant: 'Dormant',
   no_bid: 'No Bid',
 }
 
-// The 9 active stages (excluding no_bid) for the stage progression tracker
+/** Active forward stages (excluding hold, dormant, no_bid) for stage progression tracker */
 export const PURSUIT_ACTIVE_STAGES: PursuitStage[] = [
   'project_signal_received',
   'qualification_underway',
+  'qualified_pursuit',
+  'preconstruction_packet_open',
   'site_walk_scheduled',
   'site_walk_complete',
-  'closeout_plan_drafted',
-  'closeout_plan_approved',
-  'scope_development',
-  'internal_review',
+  'pursue_no_bid_review',
+  'blu_closeout_plan_sent',
   'estimate_ready',
 ]
 
 // ---------------------------------------------------------------------------
-// Machine Definition
+// Machine Definition (ERP-13 Table 10)
 // ---------------------------------------------------------------------------
 
 export const pursuitStateMachine: StateMachineDef<PursuitStage> = {
@@ -79,8 +84,43 @@ export const pursuitStateMachine: StateMachineDef<PursuitStage> = {
       requiresReason: false,
       label: 'Begin Qualification',
     },
+
+    // --- From Qualification Underway ---
     {
-      fromStates: ['project_signal_received'],
+      fromStates: ['qualification_underway'],
+      toState: 'qualified_pursuit',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_pursuit_qualified'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: false,
+      label: 'Mark as Qualified',
+    },
+    {
+      fromStates: ['qualification_underway'],
+      toState: 'hold',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_hold'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Place on Hold',
+    },
+    {
+      fromStates: ['qualification_underway'],
+      toState: 'dormant',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_dormant'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Mark Dormant',
+    },
+    {
+      fromStates: ['qualification_underway'],
       toState: 'no_bid',
       requiredFields: [],
       requiredRoles: ['leadership_system_admin', 'commercial_bd'],
@@ -88,14 +128,60 @@ export const pursuitStateMachine: StateMachineDef<PursuitStage> = {
       blockers: [],
       requiresApproval: false,
       requiresReason: true,
-      label: 'No-Bid This Pursuit',
+      label: 'No-Bid',
     },
 
-    // --- From Qualification Underway ---
+    // --- From Qualified Pursuit ---
     {
-      fromStates: ['qualification_underway'],
+      fromStates: ['qualified_pursuit'],
+      toState: 'preconstruction_packet_open',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_packet_opened'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: false,
+      label: 'Open Preconstruction Packet',
+    },
+    {
+      fromStates: ['qualified_pursuit'],
+      toState: 'hold',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_hold'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Place on Hold',
+    },
+    {
+      fromStates: ['qualified_pursuit'],
+      toState: 'dormant',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_dormant'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Mark Dormant',
+    },
+    {
+      fromStates: ['qualified_pursuit'],
+      toState: 'no_bid',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_no_bid'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'No-Bid',
+    },
+
+    // --- From Preconstruction Packet Open ---
+    {
+      fromStates: ['preconstruction_packet_open'],
       toState: 'site_walk_scheduled',
-      requiredFields: ['client_id', 'project_name'],
+      requiredFields: [],
       requiredRoles: ['leadership_system_admin', 'commercial_bd'],
       sideEffects: ['notify_site_walk_scheduled'],
       blockers: [],
@@ -104,15 +190,26 @@ export const pursuitStateMachine: StateMachineDef<PursuitStage> = {
       label: 'Schedule Site Walk',
     },
     {
-      fromStates: ['qualification_underway'],
-      toState: 'no_bid',
+      fromStates: ['preconstruction_packet_open'],
+      toState: 'estimate_ready',
       requiredFields: [],
       requiredRoles: ['leadership_system_admin', 'commercial_bd'],
-      sideEffects: ['log_no_bid'],
+      sideEffects: ['notify_estimate_ready'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: false,
+      label: 'Mark Estimate Ready (skip walk)',
+    },
+    {
+      fromStates: ['preconstruction_packet_open'],
+      toState: 'hold',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_hold'],
       blockers: [],
       requiresApproval: false,
       requiresReason: true,
-      label: 'No-Bid This Pursuit',
+      label: 'Place on Hold',
     },
 
     // --- From Site Walk Scheduled ---
@@ -129,118 +226,33 @@ export const pursuitStateMachine: StateMachineDef<PursuitStage> = {
     },
     {
       fromStates: ['site_walk_scheduled'],
-      toState: 'no_bid',
+      toState: 'hold',
       requiredFields: [],
       requiredRoles: ['leadership_system_admin', 'commercial_bd'],
-      sideEffects: ['log_no_bid'],
+      sideEffects: ['log_hold'],
       blockers: [],
       requiresApproval: false,
       requiresReason: true,
-      label: 'No-Bid This Pursuit',
+      label: 'Place on Hold',
     },
 
     // --- From Site Walk Complete ---
     {
       fromStates: ['site_walk_complete'],
-      toState: 'closeout_plan_drafted',
+      toState: 'pursue_no_bid_review',
       requiredFields: [],
       requiredRoles: ['leadership_system_admin', 'commercial_bd'],
-      sideEffects: ['notify_closeout_plan_created'],
+      sideEffects: ['notify_review_started'],
       blockers: [],
       requiresApproval: false,
       requiresReason: false,
-      label: 'Draft Closeout Plan',
+      label: 'Start Pursue/No-Bid Review',
     },
     {
       fromStates: ['site_walk_complete'],
-      toState: 'no_bid',
-      requiredFields: [],
-      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
-      sideEffects: ['log_no_bid'],
-      blockers: [],
-      requiresApproval: false,
-      requiresReason: true,
-      label: 'No-Bid This Pursuit',
-    },
-
-    // --- From Closeout Plan Drafted ---
-    {
-      fromStates: ['closeout_plan_drafted'],
-      toState: 'closeout_plan_approved',
-      requiredFields: [],
-      requiredRoles: ['leadership_system_admin'],
-      sideEffects: ['notify_closeout_plan_approved'],
-      blockers: [],
-      requiresApproval: true,
-      requiresReason: false,
-      label: 'Approve Closeout Plan',
-    },
-    {
-      fromStates: ['closeout_plan_drafted'],
-      toState: 'no_bid',
-      requiredFields: [],
-      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
-      sideEffects: ['log_no_bid'],
-      blockers: [],
-      requiresApproval: false,
-      requiresReason: true,
-      label: 'No-Bid This Pursuit',
-    },
-
-    // --- From Closeout Plan Approved ---
-    {
-      fromStates: ['closeout_plan_approved'],
-      toState: 'scope_development',
-      requiredFields: [],
-      requiredRoles: ['leadership_system_admin', 'commercial_bd', 'estimating'],
-      sideEffects: ['notify_scope_development_started'],
-      blockers: [],
-      requiresApproval: false,
-      requiresReason: false,
-      label: 'Begin Scope Development',
-    },
-    {
-      fromStates: ['closeout_plan_approved'],
-      toState: 'no_bid',
-      requiredFields: [],
-      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
-      sideEffects: ['log_no_bid'],
-      blockers: [],
-      requiresApproval: false,
-      requiresReason: true,
-      label: 'No-Bid This Pursuit',
-    },
-
-    // --- From Scope Development ---
-    {
-      fromStates: ['scope_development'],
-      toState: 'internal_review',
-      requiredFields: [],
-      requiredRoles: ['leadership_system_admin', 'commercial_bd', 'estimating'],
-      sideEffects: ['notify_internal_review_started'],
-      blockers: [],
-      requiresApproval: false,
-      requiresReason: false,
-      label: 'Submit for Internal Review',
-    },
-    {
-      fromStates: ['scope_development'],
-      toState: 'no_bid',
-      requiredFields: [],
-      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
-      sideEffects: ['log_no_bid'],
-      blockers: [],
-      requiresApproval: false,
-      requiresReason: true,
-      label: 'No-Bid This Pursuit',
-    },
-
-    // --- From Internal Review ---
-    {
-      fromStates: ['internal_review'],
       toState: 'estimate_ready',
       requiredFields: [],
-      requiredRoles: ['leadership_system_admin', 'estimating'],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
       sideEffects: ['notify_estimate_ready'],
       blockers: [],
       requiresApproval: false,
@@ -248,18 +260,42 @@ export const pursuitStateMachine: StateMachineDef<PursuitStage> = {
       label: 'Mark Estimate Ready',
     },
     {
-      fromStates: ['internal_review'],
-      toState: 'scope_development',
+      fromStates: ['site_walk_complete'],
+      toState: 'hold',
       requiredFields: [],
-      requiredRoles: ['leadership_system_admin', 'commercial_bd', 'estimating'],
-      sideEffects: ['notify_returned_to_scope'],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_hold'],
       blockers: [],
       requiresApproval: false,
       requiresReason: true,
-      label: 'Return to Scope Development',
+      label: 'Place on Hold',
+    },
+
+    // --- From Pursue / No-Bid Review ---
+    {
+      fromStates: ['pursue_no_bid_review'],
+      toState: 'blu_closeout_plan_sent',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_closeout_plan_sent'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: false,
+      label: 'Send BLU Closeout Plan',
     },
     {
-      fromStates: ['internal_review'],
+      fromStates: ['pursue_no_bid_review'],
+      toState: 'estimate_ready',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_estimate_ready'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: false,
+      label: 'Mark Estimate Ready',
+    },
+    {
+      fromStates: ['pursue_no_bid_review'],
       toState: 'no_bid',
       requiredFields: [],
       requiredRoles: ['leadership_system_admin', 'commercial_bd'],
@@ -267,7 +303,167 @@ export const pursuitStateMachine: StateMachineDef<PursuitStage> = {
       blockers: [],
       requiresApproval: false,
       requiresReason: true,
-      label: 'No-Bid This Pursuit',
+      label: 'No-Bid',
+    },
+    {
+      fromStates: ['pursue_no_bid_review'],
+      toState: 'hold',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_hold'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Place on Hold',
+    },
+
+    // --- From BLU Closeout Plan Sent ---
+    {
+      fromStates: ['blu_closeout_plan_sent'],
+      toState: 'estimate_ready',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_estimate_ready'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: false,
+      label: 'Mark Estimate Ready',
+    },
+    {
+      fromStates: ['blu_closeout_plan_sent'],
+      toState: 'hold',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_hold'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Place on Hold',
+    },
+
+    // --- From Hold (can return to prior active stage, dormant, or no-bid) ---
+    {
+      fromStates: ['hold'],
+      toState: 'qualification_underway',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_hold_released'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Resume to Qualification',
+    },
+    {
+      fromStates: ['hold'],
+      toState: 'qualified_pursuit',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_hold_released'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Resume to Qualified Pursuit',
+    },
+    {
+      fromStates: ['hold'],
+      toState: 'preconstruction_packet_open',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_hold_released'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Resume to Packet Open',
+    },
+    {
+      fromStates: ['hold'],
+      toState: 'site_walk_scheduled',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_hold_released'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Resume to Site Walk Scheduled',
+    },
+    {
+      fromStates: ['hold'],
+      toState: 'site_walk_complete',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_hold_released'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Resume to Site Walk Complete',
+    },
+    {
+      fromStates: ['hold'],
+      toState: 'pursue_no_bid_review',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_hold_released'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Resume to Review',
+    },
+    {
+      fromStates: ['hold'],
+      toState: 'blu_closeout_plan_sent',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_hold_released'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Resume to Closeout Plan Sent',
+    },
+    {
+      fromStates: ['hold'],
+      toState: 'dormant',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_dormant'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Mark Dormant',
+    },
+    {
+      fromStates: ['hold'],
+      toState: 'no_bid',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_no_bid'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'No-Bid',
+    },
+
+    // --- From Dormant ---
+    {
+      fromStates: ['dormant'],
+      toState: 'qualification_underway',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['notify_reactivation'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Reactivate to Qualification',
+    },
+    {
+      fromStates: ['dormant'],
+      toState: 'no_bid',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin', 'commercial_bd'],
+      sideEffects: ['log_no_bid'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'No-Bid from Dormant',
     },
   ],
 }
