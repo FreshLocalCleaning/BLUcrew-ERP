@@ -54,7 +54,8 @@ const columns = [
           )}
           <Link
             href={`/contacts/${c.id}`}
-            className="font-medium text-primary hover:underline"
+            className="font-medium hover:underline"
+            style={{ color: '#60a5fa' }}
           >
             {c.first_name} {c.last_name}
           </Link>
@@ -79,7 +80,8 @@ const columns = [
     cell: (info) => (
       <Link
         href={`/clients/${info.row.original.client_id}`}
-        className="text-primary hover:underline"
+        className="hover:underline"
+        style={{ color: '#60a5fa' }}
       >
         {info.getValue()}
       </Link>

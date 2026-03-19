@@ -11,6 +11,8 @@ import {
   projectStateMachine,
   PROJECT_STATE_LABELS,
 } from '@/lib/state-machines/project'
+import { autoCreateExpansionTaskAction } from '@/actions/expansion-task'
+import * as changeOrderDb from '@/lib/db/change-orders'
 import type { Project } from '@/types/commercial'
 import type { ProjectState } from '@/lib/state-machines/project'
 import type { Role } from '@/lib/permissions/roles'
@@ -90,6 +92,25 @@ export async function transitionProjectAction(
     actor.id,
     reason ?? `Status changed to ${PROJECT_STATE_LABELS[target_status as ProjectState] ?? target_status}`,
   )
+
+  // Side effect: auto-create expansion task when project reaches operationally_complete
+  if (target_status === 'operationally_complete') {
+    await autoCreateExpansionTaskAction(project_id)
+  }
+
+  // Side effect: update active_change_order_count
+  const allProjectCOs = changeOrderDb.listChangeOrdersByProject(project_id)
+  const activeCOCount = allProjectCOs.filter(
+    (co) => !['closed', 'rejected'].includes(co.status),
+  ).length
+  if (activeCOCount !== project.active_change_order_count) {
+    projectDb.updateProject(
+      project_id,
+      { active_change_order_count: activeCOCount },
+      actor.id,
+      `Active CO count updated to ${activeCOCount}`,
+    )
+  }
 
   return { success: true, data: updated }
 }

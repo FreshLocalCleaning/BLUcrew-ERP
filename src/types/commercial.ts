@@ -14,6 +14,8 @@ import type { ProposalStatus } from '@/lib/state-machines/proposal'
 import type { AwardHandoffState } from '@/lib/state-machines/award-handoff'
 import type { ProjectState } from '@/lib/state-machines/project'
 import type { MobilizationState } from '@/lib/state-machines/mobilization'
+import type { ChangeOrderState } from '@/lib/state-machines/change-order'
+import type { ExpansionTaskState } from '@/lib/state-machines/expansion-task'
 
 // ---------------------------------------------------------------------------
 // Client enums
@@ -857,4 +859,126 @@ export interface Mobilization extends BaseEntity {
   missing_items_log: string[] | null
   /** Actuals notes */
   actuals_notes: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Change Order enums (ERP-12/13 — post-award scope revision)
+// ---------------------------------------------------------------------------
+
+export const CHANGE_ORDER_ORIGINS = [
+  'pm_field_discovery',
+  'client_request',
+  'commercial_review',
+  'scope_gap',
+] as const
+export type ChangeOrderOrigin = (typeof CHANGE_ORDER_ORIGINS)[number]
+
+export const CHANGE_ORDER_ORIGIN_LABELS: Record<ChangeOrderOrigin, string> = {
+  pm_field_discovery: 'PM Field Discovery',
+  client_request: 'Client Request',
+  commercial_review: 'Commercial Review',
+  scope_gap: 'Scope Gap',
+}
+
+// ---------------------------------------------------------------------------
+// Change Order sub-types
+// ---------------------------------------------------------------------------
+
+export interface PricingDelta {
+  original_value: number
+  revised_value: number
+  delta: number
+}
+
+// ---------------------------------------------------------------------------
+// Change Order interface (ERP-12 Table 3 R13, ERP-13)
+// ---------------------------------------------------------------------------
+
+export interface ChangeOrder extends BaseEntity {
+  /** Human-readable reference ID: CO-XXXX */
+  reference_id: string
+  /** Current lifecycle state */
+  status: ChangeOrderState
+  /** Linked project ID (required) */
+  linked_project_id: string
+  /** Linked mobilization ID (optional — can attach to project or specific mobilization) */
+  linked_mobilization_id: string | null
+  /** Linked client ID (denormalized) */
+  linked_client_id: string
+  /** Who/what triggered the change order */
+  origin: ChangeOrderOrigin
+  /** Description of what changed */
+  scope_delta: string
+  /** Pricing delta JSON — original vs revised vs delta */
+  pricing_delta: PricingDelta | null
+  /** Impact on schedule */
+  schedule_delta: string | null
+  /** Impact on active/planned mobilizations */
+  mobilization_impact: string | null
+  /** PM who documented the facts */
+  fact_packet_by: string
+  /** BD/Estimating who priced it */
+  priced_by: string | null
+  /** Approval notes */
+  approval_notes: string | null
+  /** Release notes */
+  release_notes: string | null
+  /** Client response date (ISO string) */
+  client_response_date: string | null
+  /** Rejection reason */
+  rejection_reason: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Expansion Task enums (ERP-12/13 — post-project growth tracking)
+// ---------------------------------------------------------------------------
+
+export const EXPANSION_TASK_TYPES = [
+  'thank_you',
+  'referral_request',
+  'testimonial_request',
+  'repeat_work_discovery',
+  'case_study',
+  'relationship_deepening',
+] as const
+export type ExpansionTaskType = (typeof EXPANSION_TASK_TYPES)[number]
+
+export const EXPANSION_TASK_TYPE_LABELS: Record<ExpansionTaskType, string> = {
+  thank_you: 'Thank You',
+  referral_request: 'Referral Request',
+  testimonial_request: 'Testimonial Request',
+  repeat_work_discovery: 'Repeat Work Discovery',
+  case_study: 'Case Study',
+  relationship_deepening: 'Relationship Deepening',
+}
+
+// ---------------------------------------------------------------------------
+// Expansion Task interface (ERP-12/13 — Expansion Opportunity)
+// ---------------------------------------------------------------------------
+
+export interface ExpansionTask extends BaseEntity {
+  /** Human-readable reference ID: EXP-XXXX */
+  reference_id: string
+  /** Current lifecycle state */
+  status: ExpansionTaskState
+  /** Linked project ID (required) */
+  linked_project_id: string
+  /** Linked client ID (denormalized) */
+  linked_client_id: string
+  /** Task type */
+  task_type: ExpansionTaskType
+  /** Growth objective */
+  growth_objective: string
+  /** Due date (ISO string) */
+  due_date: string
+  /** Referral status (for referral tasks) */
+  referral_status: string | null
+  /** Testimonial status (for testimonial tasks) */
+  testimonial_status: string | null
+  /** True when this task generates a new Project Signal */
+  next_signal_created: boolean
+  /** Link to the new signal if created */
+  next_signal_id: string | null
+  /** Completion outcome */
+  completion_outcome: string | null
 }
