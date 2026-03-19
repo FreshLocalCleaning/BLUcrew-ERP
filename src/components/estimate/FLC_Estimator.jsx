@@ -697,7 +697,8 @@ function estCrews(sf) {
  return Math.ceil(sf / 100000);
 }
 
-function FLCEstimator() {
+function FLCEstimator(props) {
+ var initialData = props && props.initialData ? props.initialData : null;
  var [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
  useEffect(function() {
   function handleResize() { setIsMobile(window.innerWidth < 768); }
@@ -705,10 +706,14 @@ function FLCEstimator() {
   return function() { window.removeEventListener("resize", handleResize); };
  }, []);
  var fileRef = useRef(null);
- var [step, setStep] = useState(0);
- var [proj, sP] = useState({ name: "", client: "", bt: "", sf: "", baseMob: 900, city: "", miles: 0, msa: false, extSF: "", extTire: false, winEnabled: false, winPanes: "", winHeight: "standard", winSeparate: true, crewSize: "", perDiemRate: "", perDiemOverride: false, perDiemReason: "", tierReason: "", daysOverride: "", notes: "" });
- var [sel, sSel] = useState(["preEquip", "prePunch", "final", "go"]);
- var [clientMatch, sCm] = useState(null);
+ var [step, setStep] = useState(initialData && initialData.step != null ? initialData.step : 0);
+ var defaultProj = { name: "", client: "", bt: "", sf: "", baseMob: 900, city: "", miles: 0, msa: false, extSF: "", extTire: false, winEnabled: false, winPanes: "", winHeight: "standard", winSeparate: true, crewSize: "", perDiemRate: "", perDiemOverride: false, perDiemReason: "", tierReason: "", daysOverride: "", notes: "" };
+ if (initialData && initialData.proj) { for (var dk in initialData.proj) { if (initialData.proj.hasOwnProperty(dk) && defaultProj.hasOwnProperty(dk)) { defaultProj[dk] = initialData.proj[dk]; } } }
+ var [proj, sP] = useState(defaultProj);
+ var defaultSel = initialData && Array.isArray(initialData.sel) ? initialData.sel : ["preEquip", "prePunch", "final", "go"];
+ var [sel, sSel] = useState(defaultSel);
+ var initClientMatch = initialData && defaultProj.client ? CLIENTS.find(function(c) { return c.name.toLowerCase() === defaultProj.client.toLowerCase(); }) || null : null;
+ var [clientMatch, sCm] = useState(initClientMatch);
  var [cityResults, sCr] = useState([]);
  var [showCityDrop, sShowCD] = useState(false);
  var [showMilesInput, sShowMilesInput] = useState(false);
@@ -716,10 +721,10 @@ function FLCEstimator() {
  var [extracting, sExtracting] = useState(false);
  var [reviewView, sReviewView] = useState("summary");
  var [extractErr, sExtractErr] = useState("");
- var [areas, sAreas] = useState([]);
- var [tier, sTier] = useState(3);
- var [surch, sSurch] = useState({});
- var [scope, sScope] = useState("");
+ var [areas, sAreas] = useState(initialData && Array.isArray(initialData.areas) ? initialData.areas : []);
+ var [tier, sTier] = useState(initialData && typeof initialData.tier === "number" ? initialData.tier : 3);
+ var [surch, sSurch] = useState(initialData && initialData.surch ? initialData.surch : {});
+ var [scope, sScope] = useState(initialData && initialData.scope ? initialData.scope : "");
  var [scopeGT, sScopeGT] = useState(0); // GT at time scope was generated
  var [scopeEdit, sScopeEdit] = useState(false); // Edit mode toggle
  var [scopeL, sScopeL] = useState(false);
@@ -3731,6 +3736,6 @@ class FLCErrorBoundary extends React.Component {
  }
 }
 
-export default function FLCEstimatorApp() {
- return React.createElement(FLCErrorBoundary, null, React.createElement(FLCEstimator));
+export default function FLCEstimatorApp(props) {
+ return React.createElement(FLCErrorBoundary, null, React.createElement(FLCEstimator, props));
 }
