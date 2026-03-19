@@ -114,10 +114,6 @@ export interface Client extends BaseEntity {
   relationship_strength?: ClientRelationshipStrength
   /** Current lifecycle state */
   status: ClientState
-  /** Next action text */
-  next_action?: string
-  /** Next action due date (ISO string) */
-  next_action_date?: string
   /** General notes */
   notes?: string
   /** BD owner user ID */
@@ -372,10 +368,6 @@ export interface Pursuit extends BaseEntity {
   target_owner_walk?: string
   /** Target opening date (ISO string) */
   target_opening?: string
-  /** Next action text */
-  next_action?: string
-  /** Next action due date (ISO string) */
-  next_action_date?: string
   /** General notes */
   notes?: string
   /** BD owner user ID */

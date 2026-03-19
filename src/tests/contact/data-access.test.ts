@@ -21,7 +21,7 @@ beforeEach(() => {
   clientId = client.id
 })
 
-function makeContact(overrides: Partial<Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by' | 'is_deleted' | 'reference_id' | 'touch_count'>> = {}) {
+function makeContact(overrides: Partial<Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by' | 'archive_state' | 'reference_id' | 'touch_count'>> = {}) {
   return {
     first_name: 'John',
     last_name: 'Doe',
@@ -63,7 +63,7 @@ describe('Contact Data Access — Create', () => {
     expect(contact.reference_id).toBe('CON-0001')
     expect(contact.touch_count).toBe(0)
     expect(contact.client_id).toBe(clientId)
-    expect(contact.is_deleted).toBe(false)
+    expect(contact.archive_state).toBe('active')
   })
 
   it('creates audit log entry', () => {

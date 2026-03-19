@@ -89,7 +89,7 @@ export async function transitionPursuitAction(
     return { success: false, error: result.errors.join(' ') }
   }
 
-  const changes: Partial<Omit<Pursuit, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by' | 'is_deleted'>> = {
+  const changes: Partial<Omit<Pursuit, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by' | 'archive_state'>> = {
     stage: target_stage as PursuitStage,
   }
 

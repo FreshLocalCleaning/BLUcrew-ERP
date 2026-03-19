@@ -71,7 +71,7 @@ describe('Pursuit Data Access — Create', () => {
     expect(pursuit.client_name).toBe('Test Client')
     expect(pursuit.build_type).toBe('gym_fitness')
     expect(pursuit.approx_sqft).toBe(25000)
-    expect(pursuit.is_deleted).toBe(false)
+    expect(pursuit.archive_state).toBe('active')
     expect(pursuit.created_by).toBe('actor-1')
   })
 

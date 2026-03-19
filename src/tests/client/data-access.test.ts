@@ -60,7 +60,7 @@ describe('Client Data Access — Create', () => {
     expect(client.status).toBe('watchlist')
     expect(client.reference_id).toBe('CLT-0001')
     expect(client.contacts).toEqual([])
-    expect(client.is_deleted).toBe(false)
+    expect(client.archive_state).toBe('active')
     expect(client.created_by).toBe('actor-1')
   })
 

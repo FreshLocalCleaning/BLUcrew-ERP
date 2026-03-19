@@ -28,7 +28,7 @@ export async function createContactAction(
       ...parsed.data,
       client_name: client.name,
       last_touch_date: new Date().toISOString(),
-    } as Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by' | 'is_deleted' | 'reference_id' | 'touch_count'>,
+    } as Omit<Contact, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'updated_by' | 'archive_state' | 'reference_id' | 'touch_count'>,
     actorId,
   )
 
