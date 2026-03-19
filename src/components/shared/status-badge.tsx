@@ -15,6 +15,14 @@ const STATE_COLORS: Record<string, { bg: string; text: string; dot: string }> = 
   dormant: { bg: 'bg-amber-900/50', text: 'text-amber-300', dot: 'bg-amber-400' },
   archived: { bg: 'bg-gray-800', text: 'text-gray-400', dot: 'bg-gray-500' },
 
+  // Project Signal states
+  received: { bg: 'bg-slate-800', text: 'text-slate-300', dot: 'bg-slate-400' },
+  under_review: { bg: 'bg-blue-900/50', text: 'text-blue-300', dot: 'bg-blue-400' },
+  passed: { bg: 'bg-emerald-900/50', text: 'text-emerald-300', dot: 'bg-emerald-400' },
+  failed: { bg: 'bg-red-900/50', text: 'text-red-300', dot: 'bg-red-400' },
+  deferred: { bg: 'bg-amber-900/50', text: 'text-amber-300', dot: 'bg-amber-400' },
+  pending: { bg: 'bg-slate-800', text: 'text-slate-300', dot: 'bg-slate-400' },
+
   // Pursuit stages (ERP-13: 12 stages)
   project_signal_received: { bg: 'bg-indigo-900/50', text: 'text-indigo-300', dot: 'bg-indigo-400' },
   qualification_underway: { bg: 'bg-blue-900/50', text: 'text-blue-300', dot: 'bg-blue-400' },

@@ -4,8 +4,9 @@
  */
 
 import * as db from './json-db'
-import type { Client, Contact, Pursuit } from '@/types/commercial'
+import type { Client, Contact, Pursuit, ProjectSignal, ProjectSignalType } from '@/types/commercial'
 import type { ClientState } from '@/lib/state-machines/client'
+import type { ProjectSignalState } from '@/lib/state-machines/project-signal'
 import type { PursuitStage } from '@/lib/state-machines/pursuit'
 
 // ---------------------------------------------------------------------------
@@ -497,10 +498,162 @@ export function seedPursuits(): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Project Signal seeds (ERP-12 — first-class record between Contact and Pursuit)
+// ---------------------------------------------------------------------------
+
+interface SeedProjectSignal {
+  project_identity: string
+  client_name: string
+  contact_name?: string
+  signal_type: ProjectSignalType
+  source_evidence: string
+  status: ProjectSignalState
+  gate_outcome: 'pending' | 'passed' | 'failed' | 'deferred'
+  timing_signal?: string
+  fit_risk_note?: string
+  next_action?: string
+  next_action_date?: string
+  notes?: string
+}
+
+const SEED_PROJECT_SIGNALS: SeedProjectSignal[] = [
+  {
+    project_identity: 'Crunch Fitness Lewisville',
+    client_name: 'Summit Peak Builders',
+    contact_name: 'Megan Torres',
+    signal_type: 'referral',
+    source_evidence: 'Megan Torres referred us for the Crunch Fitness build-out. Plans received via plan room.',
+    status: 'passed',
+    gate_outcome: 'passed',
+    timing_signal: 'Substantial completion Q2 2026',
+    fit_risk_note: 'Good fit — standard gym/fitness post-construction scope.',
+    next_action: 'Pursuit opened — begin qualification',
+    next_action_date: '2026-03-20',
+    notes: 'Strong signal. Megan has awarded us 3 prior projects.',
+  },
+  {
+    project_identity: 'Data Center Garland Phase 2',
+    client_name: 'Balfour Beatty',
+    contact_name: 'David Park',
+    signal_type: 'direct_contact',
+    source_evidence: 'David Park reached out directly about Phase 2 expansion. Cleanroom protocols required.',
+    status: 'passed',
+    gate_outcome: 'passed',
+    timing_signal: 'Phase 2 targeting Q4 2026',
+    fit_risk_note: 'Data center cleanroom — verify crew certification requirements.',
+    next_action: 'Pursuit opened — schedule site walk',
+    next_action_date: '2026-03-28',
+  },
+  {
+    project_identity: 'Marriott TI Frisco',
+    client_name: "Rogers-O'Brien",
+    contact_name: 'Jake Moreno',
+    signal_type: 'repeat_client',
+    source_evidence: 'Jake Moreno flagged upcoming Marriott TI project at Frisco. 120-room renovation.',
+    status: 'passed',
+    gate_outcome: 'passed',
+    timing_signal: 'RFP expected Q2 2026',
+    fit_risk_note: 'Hospitality TI — good fit for BLU crew.',
+    next_action: 'Pursuit opened — review RFP documents',
+    next_action_date: '2026-04-01',
+  },
+  {
+    project_identity: 'Medical Office Plano',
+    client_name: 'HBA Design Build',
+    contact_name: 'Tom Rivera',
+    signal_type: 'event_network',
+    source_evidence: 'Met Tom Rivera at AGC event. Mentioned upcoming medical office project in Plano.',
+    status: 'under_review',
+    gate_outcome: 'pending',
+    timing_signal: 'Estimated start late 2026',
+    fit_risk_note: 'Medical — need to confirm scope and timeline.',
+    next_action: 'Follow up with Tom for project details',
+    next_action_date: '2026-04-05',
+    notes: 'Early-stage signal. Need more info before qualifying.',
+  },
+  {
+    project_identity: 'Warehouse Conversion Houston',
+    client_name: 'Whiting-Turner',
+    signal_type: 'plan_room',
+    source_evidence: 'Found in plan room listing. Whiting-Turner as GC. Large warehouse-to-office conversion.',
+    status: 'deferred',
+    gate_outcome: 'deferred',
+    fit_risk_note: 'Houston market — outside current service radius. Revisit when Houston strategy is set.',
+    next_action: 'Re-evaluate when Houston market entry is decided',
+    next_action_date: '2026-06-01',
+    notes: 'Deferred pending Houston market analysis completion.',
+  },
+]
+
+export function seedProjectSignals(): void {
+  const existing = db.list('project_signals')
+  if (existing.length > 0) {
+    return // Already seeded
+  }
+
+  // Ensure clients and contacts exist first
+  seedClients()
+  seedContacts()
+
+  const clients = db.list<Client>('clients')
+  const clientByName = new Map(clients.map((c) => [c.name, c]))
+  const contacts = db.list<Contact>('contacts')
+
+  for (let i = 0; i < SEED_PROJECT_SIGNALS.length; i++) {
+    const seed = SEED_PROJECT_SIGNALS[i]!
+    const refNum = String(i + 1).padStart(4, '0')
+    const client = clientByName.get(seed.client_name)
+
+    if (!client) continue
+
+    // Find contact if specified
+    let linkedContactId: string | undefined
+    let linkedContactName: string | undefined
+    if (seed.contact_name) {
+      const contact = contacts.find(
+        (c) =>
+          c.client_id === client.id &&
+          `${c.first_name} ${c.last_name}` === seed.contact_name,
+      )
+      if (contact) {
+        linkedContactId = contact.id
+        linkedContactName = `${contact.first_name} ${contact.last_name}`
+      }
+    }
+
+    db.create<ProjectSignal>(
+      'project_signals',
+      {
+        reference_id: `SIG-${refNum}`,
+        status: seed.status,
+        signal_type: seed.signal_type,
+        source_evidence: seed.source_evidence,
+        linked_client_id: client.id,
+        linked_client_name: seed.client_name,
+        linked_contact_id: linkedContactId,
+        linked_contact_name: linkedContactName,
+        project_identity: seed.project_identity,
+        timing_signal: seed.timing_signal ?? null,
+        fit_risk_note: seed.fit_risk_note ?? null,
+        gate_outcome: seed.gate_outcome,
+        gate_decision_by: seed.gate_outcome !== 'pending' ? 'system-seed' : null,
+        gate_decision_date: seed.gate_outcome !== 'pending' ? new Date().toISOString() : null,
+        owner: client.owner ?? 'system-seed',
+        next_action: seed.next_action ?? null,
+        next_action_date: seed.next_action_date ?? null,
+        notes: seed.notes,
+      } as Omit<ProjectSignal, db.AutoGeneratedKeys>,
+      'system-seed',
+    )
+  }
+}
+
 // Allow running directly
 if (typeof require !== 'undefined' && require.main === module) {
   seedClients()
   seedContacts()
+  seedProjectSignals()
   seedPursuits()
-  console.log('Seeded 6 clients, 8 contacts, and 3 pursuits.')
+  console.log('Seeded 6 clients, 8 contacts, 5 project signals, and 3 pursuits.')
 }

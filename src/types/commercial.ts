@@ -7,6 +7,7 @@
 
 import type { BaseEntity } from '@/lib/db/json-db'
 import type { ClientState } from '@/lib/state-machines/client'
+import type { ProjectSignalState } from '@/lib/state-machines/project-signal'
 import type { PursuitStage } from '@/lib/state-machines/pursuit'
 
 // ---------------------------------------------------------------------------
@@ -272,6 +273,85 @@ export interface Contact extends BaseEntity {
   last_touch_date?: string
   /** Touch count */
   touch_count: number
+}
+
+// ---------------------------------------------------------------------------
+// Project Signal enums (ERP-12/13 — first-class record between Contact and Pursuit)
+// ---------------------------------------------------------------------------
+
+export const PROJECT_SIGNAL_TYPES = [
+  'plan_room',
+  'direct_contact',
+  'referral',
+  'event_network',
+  'repeat_client',
+  'subcontractor_tip',
+  'online_inquiry',
+] as const
+export type ProjectSignalType = (typeof PROJECT_SIGNAL_TYPES)[number]
+
+export const PROJECT_SIGNAL_TYPE_LABELS: Record<ProjectSignalType, string> = {
+  plan_room: 'Plan Room',
+  direct_contact: 'Direct Contact',
+  referral: 'Referral',
+  event_network: 'Event / Network',
+  repeat_client: 'Repeat Client',
+  subcontractor_tip: 'Subcontractor Tip',
+  online_inquiry: 'Online Inquiry',
+}
+
+export const PROJECT_SIGNAL_GATE_OUTCOMES = [
+  'pending',
+  'passed',
+  'failed',
+  'deferred',
+] as const
+export type ProjectSignalGateOutcome = (typeof PROJECT_SIGNAL_GATE_OUTCOMES)[number]
+
+export const PROJECT_SIGNAL_GATE_LABELS: Record<ProjectSignalGateOutcome, string> = {
+  pending: 'Pending',
+  passed: 'Passed',
+  failed: 'Failed',
+  deferred: 'Deferred',
+}
+
+// ---------------------------------------------------------------------------
+// Project Signal interface
+// ---------------------------------------------------------------------------
+
+export interface ProjectSignal extends BaseEntity {
+  /** Human-readable reference ID: SIG-XXXX */
+  reference_id: string
+  /** Current lifecycle state */
+  status: ProjectSignalState
+  /** Signal type — how we heard about this opportunity */
+  signal_type: ProjectSignalType
+  /** Evidence or proof that the signal is real */
+  source_evidence: string
+  /** Linked client ID */
+  linked_client_id: string
+  /** Linked client name (denormalized for list views) */
+  linked_client_name: string
+  /** Linked contact ID */
+  linked_contact_id?: string
+  /** Linked contact name (denormalized) */
+  linked_contact_name?: string
+  /** Project name / description */
+  project_identity: string
+  /** Timing signal — schedule context */
+  timing_signal: string | null
+  /** Fit/risk note */
+  fit_risk_note: string | null
+  /** Gate outcome */
+  gate_outcome: ProjectSignalGateOutcome
+  /** Who made the gate decision */
+  gate_decision_by: string | null
+  /** When the gate decision was made (ISO string) */
+  gate_decision_date: string | null
+  /** Notes */
+  notes?: string
+  /** Pursuit ID created from this signal (set when gate passes) */
+  created_pursuit_id?: string
 }
 
 // ---------------------------------------------------------------------------
