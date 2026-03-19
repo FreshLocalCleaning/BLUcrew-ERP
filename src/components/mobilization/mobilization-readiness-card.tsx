@@ -7,6 +7,8 @@ interface MobilizationReadinessCardProps {
   checklist: ReadinessChecklist
   compressedPlanning?: boolean
   exceptionFlag?: boolean
+  interactive?: boolean
+  onToggle?: (key: keyof ReadinessChecklist) => void
 }
 
 const READINESS_LABELS: Record<keyof ReadinessChecklist, string> = {
@@ -31,6 +33,8 @@ export function MobilizationReadinessCard({
   checklist,
   compressedPlanning,
   exceptionFlag,
+  interactive = false,
+  onToggle,
 }: MobilizationReadinessCardProps) {
   const gateItems = GATE_FIELDS.map((f) => checklist[f])
   const doneCount = gateItems.filter(Boolean).length
@@ -67,8 +71,17 @@ export function MobilizationReadinessCard({
       <div className="space-y-1.5">
         {(Object.keys(READINESS_LABELS) as (keyof ReadinessChecklist)[]).map((key) => {
           const isGateField = GATE_FIELDS.includes(key)
+          const isClickable = interactive && onToggle
           return (
-            <div key={key} className="flex items-center gap-2">
+            <button
+              key={key}
+              type="button"
+              disabled={!isClickable}
+              onClick={() => isClickable && onToggle(key)}
+              className={`flex w-full items-center gap-2 rounded px-1 py-0.5 text-left transition-colors ${
+                isClickable ? 'hover:bg-muted/50 cursor-pointer' : 'cursor-default'
+              }`}
+            >
               {checklist[key] ? (
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
               ) : (
@@ -80,7 +93,7 @@ export function MobilizationReadinessCard({
               {isGateField && (
                 <span className="text-[10px] text-muted-foreground">(gate)</span>
               )}
-            </div>
+            </button>
           )
         })}
       </div>
