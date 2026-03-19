@@ -6,7 +6,11 @@ import { listContacts } from '@/lib/db/contacts'
 import { listProjectSignals } from '@/lib/db/project-signals'
 import { seedClients, seedContacts, seedProjectSignals } from '@/lib/db/seed'
 
-export default function NewPursuitPage() {
+export default function NewPursuitPage({
+  searchParams,
+}: {
+  searchParams: { clientId?: string }
+}) {
   // Ensure seed data exists
   seedClients()
   seedContacts()
@@ -38,7 +42,12 @@ export default function NewPursuitPage() {
       </div>
 
       {/* Form */}
-      <PursuitCreateForm clients={clients} contacts={contacts} passedSignals={passedSignals} />
+      <PursuitCreateForm
+        clients={clients}
+        contacts={contacts}
+        passedSignals={passedSignals}
+        preselectedClientId={searchParams.clientId}
+      />
     </div>
   )
 }

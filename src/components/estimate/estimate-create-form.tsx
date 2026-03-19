@@ -11,14 +11,20 @@ import { useState, useMemo } from 'react'
 import { PURSUIT_STAGE_LABELS } from '@/lib/state-machines/pursuit'
 
 interface EstimateCreateFormProps {
-  /** Only pursuits at estimate_ready with no active estimate */
+  /** All pursuits at estimate_ready */
   eligiblePursuits: Pursuit[]
+  /** Pursuit IDs that already have a non-superseded estimate */
+  pursuitsWithExistingEstimate?: string[]
+  preselectedPursuitId?: string
 }
 
-export function EstimateCreateForm({ eligiblePursuits }: EstimateCreateFormProps) {
+export function EstimateCreateForm({ eligiblePursuits, pursuitsWithExistingEstimate, preselectedPursuitId }: EstimateCreateFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
-  const [selectedPursuitId, setSelectedPursuitId] = useState('')
+
+  // Pre-select pursuit if provided via URL param
+  const prePursuit = preselectedPursuitId ? eligiblePursuits.find(p => p.id === preselectedPursuitId) : undefined
+  const [selectedPursuitId, setSelectedPursuitId] = useState(preselectedPursuitId ?? '')
 
   const {
     register,
@@ -28,11 +34,13 @@ export function EstimateCreateForm({ eligiblePursuits }: EstimateCreateFormProps
   } = useForm<CreateEstimateInput>({
     resolver: zodResolver(createEstimateSchema),
     defaultValues: {
-      linked_pursuit_id: '',
-      linked_client_id: '',
-      linked_client_name: '',
-      linked_pursuit_name: '',
-      project_name: '',
+      linked_pursuit_id: prePursuit?.id ?? '',
+      linked_client_id: prePursuit?.client_id ?? '',
+      linked_client_name: prePursuit?.client_name ?? '',
+      linked_pursuit_name: prePursuit?.project_name ?? '',
+      project_name: prePursuit?.project_name ?? '',
+      build_type: prePursuit?.build_type ?? undefined,
+      square_footage: prePursuit?.approx_sqft ?? undefined,
     },
   })
 
@@ -93,11 +101,14 @@ export function EstimateCreateForm({ eligiblePursuits }: EstimateCreateFormProps
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Select an estimate-ready pursuit...</option>
-            {eligiblePursuits.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.reference_id} — {p.project_name} ({p.client_name}, {PURSUIT_STAGE_LABELS[p.stage]})
-              </option>
-            ))}
+            {eligiblePursuits.map((p) => {
+              const hasExisting = pursuitsWithExistingEstimate?.includes(p.id)
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.project_name} — {p.reference_id} ({p.client_name}){hasExisting ? ' (has existing estimate)' : ''}
+                </option>
+              )
+            })}
           </select>
           {errors.linked_pursuit_id && (
             <p className="mt-1 text-xs text-red-400">{errors.linked_pursuit_id.message}</p>

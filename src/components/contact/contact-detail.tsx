@@ -141,8 +141,13 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
     role_type: contact.role_type ?? '',
     notes: contact.notes ?? '',
     owner_name: contact.owner_name ?? '',
+    is_champion: contact.is_champion,
+    champion_reason: contact.champion_reason ?? '',
   })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [championModalOpen, setChampionModalOpen] = useState(false)
+  const [championReason, setChampionReason] = useState('')
+  const [savingChampion, setSavingChampion] = useState(false)
 
   async function handleLogTouch() {
     setSubmittingTouch(true)
@@ -187,6 +192,30 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
       toast.error('An unexpected error occurred')
     }
     setSavingEdit(false)
+  }
+
+  async function handleToggleChampion() {
+    setSavingChampion(true)
+    try {
+      const newIsChampion = !contact.is_champion
+      const result = await updateContactAction({
+        contact_id: contact.id,
+        is_champion: newIsChampion,
+        champion_reason: newIsChampion ? championReason : '',
+      })
+      if (result.success && result.data) {
+        setContact(result.data)
+        toast.success(newIsChampion ? 'Marked as BLU Champion' : 'Champion designation removed')
+        setChampionModalOpen(false)
+        setChampionReason('')
+        router.refresh()
+      } else {
+        toast.error(result.error ?? 'Failed to update champion status')
+      }
+    } catch {
+      toast.error('An unexpected error occurred')
+    }
+    setSavingChampion(false)
   }
 
   const influenceStyle = INFLUENCE_COLORS[contact.influence]
@@ -292,6 +321,31 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
                   className={inputClass}
                   placeholder="e.g. Antonio, Cullen"
                 />
+              </div>
+              <div className="sm:col-span-2">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editData.is_champion}
+                      onChange={(e) => setEditData(prev => ({ ...prev, is_champion: e.target.checked }))}
+                      className="h-4 w-4 rounded border-input bg-background text-primary focus:ring-ring"
+                    />
+                    <span className="text-sm font-medium text-foreground">BLU Champion</span>
+                  </label>
+                </div>
+                {editData.is_champion && (
+                  <div className="mt-2">
+                    <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Champion Evidence</label>
+                    <textarea
+                      value={editData.champion_reason}
+                      onChange={(e) => setEditData(prev => ({ ...prev, champion_reason: e.target.value }))}
+                      className={inputClass}
+                      rows={2}
+                      placeholder="Why is this person a champion for BLU Crew?"
+                    />
+                  </div>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Notes</label>
@@ -482,6 +536,8 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
               role_type: contact.role_type ?? '',
               notes: contact.notes ?? '',
               owner_name: contact.owner_name ?? '',
+              is_champion: contact.is_champion,
+              champion_reason: contact.champion_reason ?? '',
             })
           }}
           className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
@@ -495,6 +551,21 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
         >
           <HandMetal className="h-4 w-4 text-muted-foreground" />
           Log Touch
+        </button>
+        <button
+          onClick={() => {
+            setChampionReason(contact.champion_reason ?? '')
+            setChampionModalOpen(true)
+          }}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/50',
+            contact.is_champion
+              ? 'border-amber-600 text-amber-300'
+              : 'border-border text-foreground',
+          )}
+        >
+          <Star className={cn('h-4 w-4', contact.is_champion ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+          {contact.is_champion ? 'Remove Champion' : 'Mark as BLU Champion'}
         </button>
 
         {/* Quick Info Cards */}
@@ -615,6 +686,86 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
                 {submittingTouch ? 'Logging...' : 'Log Touch'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* BLU Champion Modal */}
+      {championModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setChampionModalOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg">
+            {contact.is_champion ? (
+              <>
+                <h3 className="text-lg font-semibold text-foreground">Remove BLU Champion</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Remove the BLU Champion designation from {contact.first_name} {contact.last_name}?
+                </p>
+                {contact.champion_reason && (
+                  <div className="mt-3 rounded-md border border-amber-700 bg-amber-900/20 p-3">
+                    <p className="text-xs font-medium uppercase text-amber-400">Current Evidence</p>
+                    <p className="mt-1 text-sm text-amber-200">{contact.champion_reason}</p>
+                  </div>
+                )}
+                <div className="mt-4 flex justify-end gap-3">
+                  <button
+                    onClick={() => setChampionModalOpen(false)}
+                    className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleToggleChampion}
+                    disabled={savingChampion}
+                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {savingChampion ? 'Removing...' : 'Remove Champion'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-foreground">Mark as BLU Champion</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Designate {contact.first_name} {contact.last_name} as a BLU Champion — someone who actively
+                  advocates for BLU Crew within their organization.
+                </p>
+                <div className="mt-4">
+                  <label htmlFor="champion-reason" className="block text-sm font-medium text-foreground">
+                    Champion Evidence <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    id="champion-reason"
+                    value={championReason}
+                    onChange={(e) => setChampionReason(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. Actively recommends BLU Crew to other PMs and project teams."
+                    className={inputClass}
+                  />
+                </div>
+                <div className="mt-4 flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setChampionModalOpen(false)
+                      setChampionReason('')
+                    }}
+                    className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleToggleChampion}
+                    disabled={savingChampion || !championReason.trim()}
+                    className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    {savingChampion ? 'Saving...' : 'Mark as Champion'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

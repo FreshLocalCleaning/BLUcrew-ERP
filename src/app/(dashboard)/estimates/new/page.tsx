@@ -3,28 +3,43 @@ import { ChevronRight } from 'lucide-react'
 import { EstimateCreateForm } from '@/components/estimate/estimate-create-form'
 import { listPursuits } from '@/lib/db/pursuits'
 import { listEstimates } from '@/lib/db/estimates'
-import { seedClients, seedContacts, seedProjectSignals, seedPursuits } from '@/lib/db/seed'
+import { seedClients, seedContacts, seedProjectSignals, seedPursuits, seedEstimates } from '@/lib/db/seed'
 
-export default function NewEstimatePage() {
+export default function NewEstimatePage({
+  searchParams,
+}: {
+  searchParams: { clientId?: string; pursuitId?: string }
+}) {
   // Ensure seed data exists
   seedClients()
   seedContacts()
   seedProjectSignals()
   seedPursuits()
+  seedEstimates()
 
   const pursuits = listPursuits()
   const estimates = listEstimates()
 
-  // Only show pursuits at estimate_ready that don't already have an active estimate
-  const pursuitsWithActiveEstimate = new Set(
-    estimates
-      .filter((e) => e.status !== 'superseded')
-      .map((e) => e.linked_pursuit_id),
-  )
+  // Show ALL pursuits at estimate_ready (including those with existing estimates — new versions allowed)
+  const eligiblePursuits = pursuits.filter((p) => p.stage === 'estimate_ready')
 
-  const eligiblePursuits = pursuits.filter(
-    (p) => p.stage === 'estimate_ready' && !pursuitsWithActiveEstimate.has(p.id),
-  )
+  // Track which pursuits already have active (non-superseded) estimates
+  const pursuitsWithActiveEstimate = [
+    ...new Set(
+      estimates
+        .filter((e) => e.status !== 'superseded')
+        .map((e) => e.linked_pursuit_id),
+    ),
+  ]
+
+  // Determine preselection: explicit pursuitId > single eligible pursuit for clientId
+  let preselectedPursuitId = searchParams.pursuitId
+  if (!preselectedPursuitId && searchParams.clientId) {
+    const clientPursuits = eligiblePursuits.filter(p => p.client_id === searchParams.clientId)
+    if (clientPursuits.length === 1) {
+      preselectedPursuitId = clientPursuits[0]!.id
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -46,7 +61,11 @@ export default function NewEstimatePage() {
       </div>
 
       {/* Form */}
-      <EstimateCreateForm eligiblePursuits={eligiblePursuits} />
+      <EstimateCreateForm
+        eligiblePursuits={eligiblePursuits}
+        pursuitsWithExistingEstimate={pursuitsWithActiveEstimate}
+        preselectedPursuitId={preselectedPursuitId ?? (eligiblePursuits.length === 1 ? eligiblePursuits[0]!.id : undefined)}
+      />
     </div>
   )
 }

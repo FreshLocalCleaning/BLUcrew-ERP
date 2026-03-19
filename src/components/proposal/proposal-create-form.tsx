@@ -13,6 +13,7 @@ import { useState, useMemo } from 'react'
 interface ProposalCreateFormProps {
   /** Only estimates at approved_for_proposal */
   eligibleEstimates: Estimate[]
+  preselectedEstimateId?: string
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -24,10 +25,13 @@ function formatCurrency(value: number | null | undefined): string {
   }).format(value)
 }
 
-export function ProposalCreateForm({ eligibleEstimates }: ProposalCreateFormProps) {
+export function ProposalCreateForm({ eligibleEstimates, preselectedEstimateId }: ProposalCreateFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
-  const [selectedEstimateId, setSelectedEstimateId] = useState('')
+
+  // Pre-select estimate if provided via URL param
+  const preEstimate = preselectedEstimateId ? eligibleEstimates.find(e => e.id === preselectedEstimateId) : undefined
+  const [selectedEstimateId, setSelectedEstimateId] = useState(preselectedEstimateId ?? '')
 
   const {
     register,
@@ -38,12 +42,12 @@ export function ProposalCreateForm({ eligibleEstimates }: ProposalCreateFormProp
   } = useForm<CreateProposalInput>({
     resolver: zodResolver(createProposalSchema) as any,
     defaultValues: {
-      linked_estimate_id: '',
-      linked_pursuit_id: '',
-      linked_client_id: '',
-      linked_client_name: '',
-      project_name: '',
-      proposal_value: 0,
+      linked_estimate_id: preEstimate?.id ?? '',
+      linked_pursuit_id: preEstimate?.linked_pursuit_id ?? '',
+      linked_client_id: preEstimate?.linked_client_id ?? '',
+      linked_client_name: preEstimate?.linked_client_name ?? '',
+      project_name: preEstimate?.project_name ?? '',
+      proposal_value: preEstimate?.pricing_summary?.grand_total ?? 0,
       version: 1,
     },
   })
