@@ -12,8 +12,10 @@ import {
   PURSUIT_CLIENT_TYPE_LABELS,
   PURSUIT_BUILD_TYPES,
   PURSUIT_BUILD_TYPE_LABELS,
+  PROJECT_SIGNAL_TYPE_LABELS,
   type Client,
   type Contact,
+  type ProjectSignal,
 } from '@/types/commercial'
 import { toast } from 'sonner'
 import { useState, useMemo } from 'react'
@@ -21,12 +23,14 @@ import { useState, useMemo } from 'react'
 interface PursuitCreateFormProps {
   clients: Client[]
   contacts: Contact[]
+  passedSignals: ProjectSignal[]
 }
 
-export function PursuitCreateForm({ clients, contacts }: PursuitCreateFormProps) {
+export function PursuitCreateForm({ clients, contacts, passedSignals }: PursuitCreateFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [selectedClientId, setSelectedClientId] = useState('')
+  const [selectedSignalId, setSelectedSignalId] = useState('')
 
   const {
     register,
@@ -36,6 +40,7 @@ export function PursuitCreateForm({ clients, contacts }: PursuitCreateFormProps)
   } = useForm<CreatePursuitInput>({
     resolver: zodResolver(createPursuitSchema),
     defaultValues: {
+      linked_signal_id: '',
       project_name: '',
       client_id: '',
       client_name: '',
@@ -43,10 +48,39 @@ export function PursuitCreateForm({ clients, contacts }: PursuitCreateFormProps)
     },
   })
 
+  // Filter signals to selected client (only passed, unused signals)
+  const availableSignals = useMemo(
+    () => passedSignals.filter((s) =>
+      (!selectedClientId || s.linked_client_id === selectedClientId) &&
+      !s.created_pursuit_id,
+    ),
+    [passedSignals, selectedClientId],
+  )
+
   const filteredContacts = useMemo(
     () => contacts.filter((c) => c.client_id === selectedClientId),
     [contacts, selectedClientId],
   )
+
+  function handleSignalChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const signalId = e.target.value
+    setSelectedSignalId(signalId)
+    setValue('linked_signal_id', signalId)
+
+    const signal = passedSignals.find((s) => s.id === signalId)
+    if (signal) {
+      // Auto-fill from signal data
+      setValue('project_name', signal.project_identity)
+      setValue('client_id', signal.linked_client_id)
+      setValue('client_name', signal.linked_client_name)
+      setSelectedClientId(signal.linked_client_id)
+
+      if (signal.linked_contact_id) {
+        setValue('primary_contact_id', signal.linked_contact_id)
+        setValue('primary_contact_name', signal.linked_contact_name ?? '')
+      }
+    }
+  }
 
   function handleClientChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const clientId = e.target.value
@@ -54,9 +88,11 @@ export function PursuitCreateForm({ clients, contacts }: PursuitCreateFormProps)
     setValue('client_id', clientId)
     const client = clients.find((c) => c.id === clientId)
     setValue('client_name', client?.name ?? '')
-    // Reset contact when client changes
     setValue('primary_contact_id', '')
     setValue('primary_contact_name', '')
+    // Reset signal selection when client changes
+    setSelectedSignalId('')
+    setValue('linked_signal_id', '')
   }
 
   function handleContactChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -85,6 +121,41 @@ export function PursuitCreateForm({ clients, contacts }: PursuitCreateFormProps)
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      {/* Signal Gate */}
+      <div className="space-y-6 rounded-lg border border-border bg-card p-6">
+        <h2 className="text-lg font-semibold text-foreground">Project Signal Gate</h2>
+        <p className="text-sm text-muted-foreground">
+          A Pursuit can only be created from a passed Project Signal. Select the signal below — project details will auto-fill.
+        </p>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-foreground">
+            Passed Project Signal <span className="text-red-400">*</span>
+          </label>
+          <select
+            onChange={handleSignalChange}
+            value={selectedSignalId}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Select a passed signal...</option>
+            {availableSignals.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.reference_id} — {s.project_identity} ({s.linked_client_name}, {PROJECT_SIGNAL_TYPE_LABELS[s.signal_type]})
+              </option>
+            ))}
+          </select>
+          {errors.linked_signal_id && (
+            <p className="mt-1 text-xs text-red-400">{errors.linked_signal_id.message}</p>
+          )}
+          <input type="hidden" {...register('linked_signal_id')} />
+          {availableSignals.length === 0 && (
+            <p className="mt-2 text-xs text-amber-400">
+              No unused passed signals available. Create and pass a Project Signal first.
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* Project Info */}
       <div className="space-y-6 rounded-lg border border-border bg-card p-6">
         <h2 className="text-lg font-semibold text-foreground">Project Information</h2>
@@ -238,42 +309,18 @@ export function PursuitCreateForm({ clients, contacts }: PursuitCreateFormProps)
       {/* Timeline */}
       <div className="space-y-6 rounded-lg border border-border bg-card p-6">
         <h2 className="text-lg font-semibold text-foreground">Timeline</h2>
-
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Projected Substantial Completion */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
-              Projected Substantial Completion
-            </label>
-            <input
-              {...register('projected_substantial_completion')}
-              type="date"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <label className="mb-1 block text-sm font-medium text-foreground">Projected Substantial Completion</label>
+            <input {...register('projected_substantial_completion')} type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
-
-          {/* Target Owner Walk */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
-              Target Owner Walk
-            </label>
-            <input
-              {...register('target_owner_walk')}
-              type="date"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <label className="mb-1 block text-sm font-medium text-foreground">Target Owner Walk</label>
+            <input {...register('target_owner_walk')} type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
-
-          {/* Target Opening */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
-              Target Opening
-            </label>
-            <input
-              {...register('target_opening')}
-              type="date"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <label className="mb-1 block text-sm font-medium text-foreground">Target Opening</label>
+            <input {...register('target_opening')} type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
         </div>
       </div>
@@ -281,62 +328,28 @@ export function PursuitCreateForm({ clients, contacts }: PursuitCreateFormProps)
       {/* Next Action & Notes */}
       <div className="space-y-6 rounded-lg border border-border bg-card p-6">
         <h2 className="text-lg font-semibold text-foreground">Next Steps</h2>
-
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Next Action */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
-              Next Action
-            </label>
-            <input
-              {...register('next_action')}
-              type="text"
-              placeholder="e.g. Schedule site walk with GC"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <label className="mb-1 block text-sm font-medium text-foreground">Next Action</label>
+            <input {...register('next_action')} type="text" placeholder="e.g. Schedule site walk with GC" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
-
-          {/* Next Action Date */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
-              Next Action Date
-            </label>
-            <input
-              {...register('next_action_date')}
-              type="date"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <label className="mb-1 block text-sm font-medium text-foreground">Next Action Date</label>
+            <input {...register('next_action_date')} type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
-
-          {/* Notes */}
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-foreground">
-              Notes
-            </label>
-            <textarea
-              {...register('notes')}
-              rows={4}
-              placeholder="General notes about this pursuit..."
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
+            <textarea {...register('notes')} rows={4} placeholder="General notes about this pursuit..." className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
         </div>
       </div>
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-        >
+        <button type="button" onClick={() => router.back()} className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <button type="submit" disabled={submitting} className="rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
           {submitting ? 'Creating...' : 'Create Pursuit'}
         </button>
       </div>

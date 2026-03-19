@@ -3,15 +3,20 @@ import { ChevronRight } from 'lucide-react'
 import { PursuitCreateForm } from '@/components/pursuit/pursuit-create-form'
 import { listClients } from '@/lib/db/clients'
 import { listContacts } from '@/lib/db/contacts'
-import { seedClients, seedContacts } from '@/lib/db/seed'
+import { listProjectSignals } from '@/lib/db/project-signals'
+import { seedClients, seedContacts, seedProjectSignals } from '@/lib/db/seed'
 
 export default function NewPursuitPage() {
   // Ensure seed data exists
   seedClients()
   seedContacts()
+  seedProjectSignals()
 
   const clients = listClients()
   const contacts = listContacts()
+  const passedSignals = listProjectSignals().filter(
+    (s) => s.gate_outcome === 'passed' && !s.created_pursuit_id,
+  )
 
   return (
     <div className="space-y-6">
@@ -28,12 +33,12 @@ export default function NewPursuitPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">New Pursuit</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Create a new project pursuit to track from signal to estimate
+          A Pursuit requires a passed Project Signal. Select the signal to begin.
         </p>
       </div>
 
       {/* Form */}
-      <PursuitCreateForm clients={clients} contacts={contacts} />
+      <PursuitCreateForm clients={clients} contacts={contacts} passedSignals={passedSignals} />
     </div>
   )
 }

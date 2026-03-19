@@ -4,6 +4,7 @@ import { createPursuitSchema, updatePursuitSchema, pursuitTransitionSchema } fro
 describe('Pursuit Validation — Create Schema', () => {
   it('accepts valid minimal input', () => {
     const result = createPursuitSchema.safeParse({
+      linked_signal_id: 'sig-1',
       project_name: 'Test Project',
       client_id: 'abc-123',
       client_name: 'Test Client',
@@ -11,8 +12,18 @@ describe('Pursuit Validation — Create Schema', () => {
     expect(result.success).toBe(true)
   })
 
+  it('rejects missing linked_signal_id', () => {
+    const result = createPursuitSchema.safeParse({
+      project_name: 'Test Project',
+      client_id: 'abc-123',
+      client_name: 'Test Client',
+    })
+    expect(result.success).toBe(false)
+  })
+
   it('accepts valid full input', () => {
     const result = createPursuitSchema.safeParse({
+      linked_signal_id: 'sig-1',
       project_name: 'Crunch Fitness',
       client_id: 'abc-123',
       client_name: 'Summit Peak',
@@ -112,6 +123,7 @@ describe('Pursuit Validation — Create Schema', () => {
     const types = ['referral', 'trailer', 'outreach', 'event', 'repeat_client', 'inbound']
     for (const t of types) {
       const result = createPursuitSchema.safeParse({
+        linked_signal_id: 'sig-1',
         project_name: 'Test',
         client_id: 'abc',
         client_name: 'C',
@@ -128,6 +140,7 @@ describe('Pursuit Validation — Create Schema', () => {
     ]
     for (const t of types) {
       const result = createPursuitSchema.safeParse({
+        linked_signal_id: 'sig-1',
         project_name: 'Test',
         client_id: 'abc',
         client_name: 'C',

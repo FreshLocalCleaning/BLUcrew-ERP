@@ -27,7 +27,7 @@ describe('Pursuit Data Access — Reference ID', () => {
 
   it('increments reference ID for each pursuit', () => {
     createPursuit(
-      { project_name: 'First', client_id: 'c1', client_name: 'Client 1' },
+      { linked_signal_id: 'sig-1', project_name: 'First', client_id: 'c1', client_name: 'Client 1' },
       'actor-1',
     )
     const ref = generateReferenceId()
@@ -37,7 +37,7 @@ describe('Pursuit Data Access — Reference ID', () => {
   it('pads reference ID to 4 digits', () => {
     for (let i = 0; i < 9; i++) {
       createPursuit(
-        { project_name: `Project ${i}`, client_id: 'c1', client_name: 'Client 1' },
+        { linked_signal_id: 'sig-1', project_name: `Project ${i}`, client_id: 'c1', client_name: 'Client 1' },
         'actor-1',
       )
     }
@@ -54,6 +54,7 @@ describe('Pursuit Data Access — Create', () => {
   it('creates a pursuit with default stage project_signal_received', () => {
     const pursuit = createPursuit(
       {
+        linked_signal_id: 'sig-1',
         project_name: 'Test Project',
         client_id: 'c1',
         client_name: 'Test Client',
@@ -77,7 +78,7 @@ describe('Pursuit Data Access — Create', () => {
 
   it('creates an audit log entry on create', () => {
     const pursuit = createPursuit(
-      { project_name: 'Audited', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: 'sig-1', project_name: 'Audited', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
     const log = getPursuitAuditLog(pursuit.id)
@@ -89,6 +90,7 @@ describe('Pursuit Data Access — Create', () => {
   it('allows setting a custom stage on create', () => {
     const pursuit = createPursuit(
       {
+        linked_signal_id: 'sig-1',
         project_name: 'Custom Stage',
         client_id: 'c1',
         client_name: 'C1',
@@ -103,7 +105,7 @@ describe('Pursuit Data Access — Create', () => {
 describe('Pursuit Data Access — Read', () => {
   it('gets a pursuit by ID', () => {
     const created = createPursuit(
-      { project_name: 'Get Me', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: 'sig-1', project_name: 'Get Me', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
     const fetched = getPursuit(created.id)
@@ -118,7 +120,7 @@ describe('Pursuit Data Access — Read', () => {
 
   it('returns undefined for soft-deleted pursuit', () => {
     const created = createPursuit(
-      { project_name: 'To Delete', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: 'sig-1', project_name: 'To Delete', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
     archivePursuit(created.id, 'actor-1', 'Testing')
@@ -127,10 +129,10 @@ describe('Pursuit Data Access — Read', () => {
   })
 
   it('lists all non-deleted pursuits', () => {
-    createPursuit({ project_name: 'A', client_id: 'c1', client_name: 'C1' }, 'actor-1')
-    createPursuit({ project_name: 'B', client_id: 'c1', client_name: 'C1' }, 'actor-1')
+    createPursuit({ linked_signal_id: 'sig-1', project_name: 'A', client_id: 'c1', client_name: 'C1' }, 'actor-1')
+    createPursuit({ linked_signal_id: 'sig-2', project_name: 'B', client_id: 'c1', client_name: 'C1' }, 'actor-1')
     const deleted = createPursuit(
-      { project_name: 'C', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: 'sig-3', project_name: 'C', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
     archivePursuit(deleted.id, 'actor-1', 'Testing')
@@ -141,9 +143,9 @@ describe('Pursuit Data Access — Read', () => {
   })
 
   it('lists pursuits by client', () => {
-    createPursuit({ project_name: 'P1', client_id: 'c1', client_name: 'C1' }, 'actor-1')
-    createPursuit({ project_name: 'P2', client_id: 'c2', client_name: 'C2' }, 'actor-1')
-    createPursuit({ project_name: 'P3', client_id: 'c1', client_name: 'C1' }, 'actor-1')
+    createPursuit({ linked_signal_id: 'sig-1', project_name: 'P1', client_id: 'c1', client_name: 'C1' }, 'actor-1')
+    createPursuit({ linked_signal_id: 'sig-2', project_name: 'P2', client_id: 'c2', client_name: 'C2' }, 'actor-1')
+    createPursuit({ linked_signal_id: 'sig-3', project_name: 'P3', client_id: 'c1', client_name: 'C1' }, 'actor-1')
 
     const c1Pursuits = listPursuitsByClient('c1')
     expect(c1Pursuits.length).toBe(2)
@@ -154,7 +156,7 @@ describe('Pursuit Data Access — Read', () => {
 describe('Pursuit Data Access — Update', () => {
   it('updates pursuit fields', () => {
     const created = createPursuit(
-      { project_name: 'Old Name', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: 'sig-1', project_name: 'Old Name', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
     const updated = updatePursuit(
@@ -169,7 +171,7 @@ describe('Pursuit Data Access — Update', () => {
 
   it('logs field changes in audit', () => {
     const created = createPursuit(
-      { project_name: 'Original', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: 'sig-1', project_name: 'Original', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
     updatePursuit(created.id, { project_name: 'Changed' }, 'actor-2', 'Renamed')
@@ -192,7 +194,7 @@ describe('Pursuit Data Access — Update', () => {
 describe('Pursuit Data Access — Soft Delete', () => {
   it('soft-deletes a pursuit', () => {
     const created = createPursuit(
-      { project_name: 'To Archive', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: 'sig-1', project_name: 'To Archive', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
     archivePursuit(created.id, 'actor-1', 'No longer relevant')
@@ -206,7 +208,7 @@ describe('Pursuit Data Access — Soft Delete', () => {
 
   it('logs soft delete in audit', () => {
     const created = createPursuit(
-      { project_name: 'Audit Archive', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: 'sig-1', project_name: 'Audit Archive', client_id: 'c1', client_name: 'C1' },
       'actor-1',
     )
     archivePursuit(created.id, 'actor-1', 'Project cancelled')

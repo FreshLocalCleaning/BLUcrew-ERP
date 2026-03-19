@@ -422,6 +422,8 @@ export const PURSUIT_BUILD_TYPE_LABELS: Record<PursuitBuildType, string> = {
 export interface Pursuit extends BaseEntity {
   /** Human-readable reference ID: PUR-XXXX */
   reference_id: string
+  /** Linked Project Signal ID (required — Pursuit can only be created from a passed signal) */
+  linked_signal_id: string
   /** Project name */
   project_name: string
   /** Client ID */

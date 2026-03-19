@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { resetDb } from '@/lib/db/json-db'
+import { createClient } from '@/lib/db/clients'
+import { createContact } from '@/lib/db/contacts'
+import { createProjectSignal, updateProjectSignal } from '@/lib/db/project-signals'
 import { createPursuit } from '@/lib/db/pursuits'
 import {
   createPursuitAction,
@@ -9,34 +12,209 @@ import {
   listPursuitsAction,
 } from '@/actions/pursuit'
 
+let clientId: string
+let contactId: string
+let passedSignalId: string
+
 beforeEach(() => {
   resetDb()
+  const client = createClient({ name: 'Test Client' }, 'actor-1')
+  clientId = client.id
+  const contact = createContact(
+    {
+      first_name: 'John',
+      last_name: 'Doe',
+      client_id: clientId,
+      client_name: 'Test Client',
+      layer: 'pm_super_field' as const,
+      influence: 'medium' as const,
+      is_champion: false,
+      relationship_strength: 'new' as const,
+      owner: 'actor-1',
+    },
+    'actor-1',
+  )
+  contactId = contact.id
+
+  // Create a passed signal for use in tests
+  const signal = createProjectSignal(
+    {
+      signal_type: 'referral',
+      source_evidence: 'Test referral',
+      linked_client_id: clientId,
+      linked_client_name: 'Test Client',
+      linked_contact_id: contactId,
+      linked_contact_name: 'John Doe',
+      project_identity: 'Test Project',
+      timing_signal: null,
+      fit_risk_note: null,
+      owner: 'actor-1',
+    },
+    'actor-1',
+  )
+  // Move signal to passed state
+  updateProjectSignal(signal.id, {
+    status: 'passed',
+    gate_outcome: 'passed',
+    gate_decision_by: 'actor-1',
+    gate_decision_date: new Date().toISOString(),
+  }, 'actor-1', 'Signal passed')
+  passedSignalId = signal.id
 })
 
-describe('Pursuit Server Actions — Create', () => {
-  it('creates a pursuit with valid data', async () => {
+// ---------------------------------------------------------------------------
+// Create — signal gate enforcement (DELTA-9)
+// ---------------------------------------------------------------------------
+
+describe('Pursuit Server Actions — Create (Signal Gate)', () => {
+  it('creates a pursuit with a passed signal', async () => {
     const result = await createPursuitAction({
+      linked_signal_id: passedSignalId,
       project_name: 'Test Project',
-      client_id: 'c1',
-      client_name: 'Client One',
+      client_id: clientId,
+      client_name: 'Test Client',
     })
     expect(result.success).toBe(true)
     expect(result.data?.project_name).toBe('Test Project')
     expect(result.data?.stage).toBe('project_signal_received')
     expect(result.data?.reference_id).toBe('PUR-0001')
+    expect(result.data?.linked_signal_id).toBe(passedSignalId)
   })
 
-  it('returns error for missing project name', async () => {
+  it('rejects creation without a linked signal ID', async () => {
     const result = await createPursuitAction({
-      client_id: 'c1',
-      client_name: 'Client One',
+      project_name: 'Test Project',
+      client_id: clientId,
+      client_name: 'Test Client',
     })
     expect(result.success).toBe(false)
     expect(result.error).toBeDefined()
   })
 
+  it('rejects creation with empty linked signal ID', async () => {
+    const result = await createPursuitAction({
+      linked_signal_id: '',
+      project_name: 'Test Project',
+      client_id: clientId,
+      client_name: 'Test Client',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects creation when signal does not exist', async () => {
+    const result = await createPursuitAction({
+      linked_signal_id: 'non-existent-signal',
+      project_name: 'Test Project',
+      client_id: clientId,
+      client_name: 'Test Client',
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('not found')
+  })
+
+  it('rejects creation when signal gate has not passed (pending)', async () => {
+    const pendingSignal = createProjectSignal(
+      {
+        signal_type: 'direct_contact',
+        source_evidence: 'Direct contact',
+        linked_client_id: clientId,
+        linked_client_name: 'Test Client',
+        project_identity: 'Pending Project',
+        timing_signal: null,
+        fit_risk_note: null,
+        owner: 'actor-1',
+      },
+      'actor-1',
+    )
+    const result = await createPursuitAction({
+      linked_signal_id: pendingSignal.id,
+      project_name: 'Test Project',
+      client_id: clientId,
+      client_name: 'Test Client',
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('gate has not passed')
+  })
+
+  it('rejects creation when signal gate failed', async () => {
+    const failedSignal = createProjectSignal(
+      {
+        signal_type: 'plan_room',
+        source_evidence: 'Plan room listing',
+        linked_client_id: clientId,
+        linked_client_name: 'Test Client',
+        project_identity: 'Failed Project',
+        timing_signal: null,
+        fit_risk_note: null,
+        owner: 'actor-1',
+      },
+      'actor-1',
+    )
+    updateProjectSignal(failedSignal.id, {
+      status: 'failed',
+      gate_outcome: 'failed',
+      gate_decision_by: 'actor-1',
+      gate_decision_date: new Date().toISOString(),
+    }, 'actor-1', 'Not a real opportunity')
+
+    const result = await createPursuitAction({
+      linked_signal_id: failedSignal.id,
+      project_name: 'Test Project',
+      client_id: clientId,
+      client_name: 'Test Client',
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('gate has not passed')
+  })
+
+  it('rejects creation when signal was already used for another pursuit', async () => {
+    // First pursuit succeeds
+    const first = await createPursuitAction({
+      linked_signal_id: passedSignalId,
+      project_name: 'First Pursuit',
+      client_id: clientId,
+      client_name: 'Test Client',
+    })
+    expect(first.success).toBe(true)
+
+    // Second pursuit from same signal fails
+    const second = await createPursuitAction({
+      linked_signal_id: passedSignalId,
+      project_name: 'Second Pursuit',
+      client_id: clientId,
+      client_name: 'Test Client',
+    })
+    expect(second.success).toBe(false)
+    expect(second.error).toContain('already been used')
+  })
+
+  it('links pursuit back to signal (sets created_pursuit_id)', async () => {
+    const result = await createPursuitAction({
+      linked_signal_id: passedSignalId,
+      project_name: 'Linked Pursuit',
+      client_id: clientId,
+      client_name: 'Test Client',
+    })
+    expect(result.success).toBe(true)
+
+    // Import the signal DB to check back-link
+    const { getProjectSignal } = await import('@/lib/db/project-signals')
+    const signal = getProjectSignal(passedSignalId)
+    expect(signal?.created_pursuit_id).toBe(result.data?.id)
+  })
+
+  it('returns error for missing project name', async () => {
+    const result = await createPursuitAction({
+      linked_signal_id: passedSignalId,
+      client_id: clientId,
+      client_name: 'Test Client',
+    })
+    expect(result.success).toBe(false)
+  })
+
   it('returns error for missing client_id', async () => {
     const result = await createPursuitAction({
+      linked_signal_id: passedSignalId,
       project_name: 'Test',
       client_name: 'C',
     })
@@ -44,10 +222,14 @@ describe('Pursuit Server Actions — Create', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Update
+// ---------------------------------------------------------------------------
+
 describe('Pursuit Server Actions — Update', () => {
   it('updates a pursuit', async () => {
     const pursuit = createPursuit(
-      { project_name: 'Original', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: passedSignalId, project_name: 'Original', client_id: clientId, client_name: 'Test Client' },
       'actor-1',
     )
     const result = await updatePursuitAction({
@@ -66,10 +248,14 @@ describe('Pursuit Server Actions — Update', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Transition
+// ---------------------------------------------------------------------------
+
 describe('Pursuit Server Actions — Transition', () => {
   it('transitions from signal to qualification', async () => {
     const pursuit = createPursuit(
-      { project_name: 'Test', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: passedSignalId, project_name: 'Test', client_id: clientId, client_name: 'Test Client' },
       'actor-1',
     )
     const result = await transitionPursuitAction({
@@ -82,14 +268,10 @@ describe('Pursuit Server Actions — Transition', () => {
 
   it('transitions to no_bid with reason (from qualification_underway)', async () => {
     const pursuit = createPursuit(
-      { project_name: 'Test', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: passedSignalId, project_name: 'Test', client_id: clientId, client_name: 'Test Client' },
       'actor-1',
     )
-    // Must go through qualification first (no direct no-bid from signal)
-    await transitionPursuitAction({
-      pursuit_id: pursuit.id,
-      target_stage: 'qualification_underway',
-    })
+    await transitionPursuitAction({ pursuit_id: pursuit.id, target_stage: 'qualification_underway' })
     const result = await transitionPursuitAction({
       pursuit_id: pursuit.id,
       target_stage: 'no_bid',
@@ -102,7 +284,7 @@ describe('Pursuit Server Actions — Transition', () => {
 
   it('rejects no_bid without reason', async () => {
     const pursuit = createPursuit(
-      { project_name: 'Test', client_id: 'c1', client_name: 'C1', stage: 'qualification_underway' },
+      { linked_signal_id: passedSignalId, project_name: 'Test', client_id: clientId, client_name: 'Test Client', stage: 'qualification_underway' },
       'actor-1',
     )
     const result = await transitionPursuitAction({
@@ -115,7 +297,7 @@ describe('Pursuit Server Actions — Transition', () => {
 
   it('rejects invalid stage jump', async () => {
     const pursuit = createPursuit(
-      { project_name: 'Test', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: passedSignalId, project_name: 'Test', client_id: clientId, client_name: 'Test Client' },
       'actor-1',
     )
     const result = await transitionPursuitAction({
@@ -136,10 +318,14 @@ describe('Pursuit Server Actions — Transition', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Get & List
+// ---------------------------------------------------------------------------
+
 describe('Pursuit Server Actions — Get & List', () => {
   it('gets a pursuit by ID', async () => {
     const pursuit = createPursuit(
-      { project_name: 'Get Me', client_id: 'c1', client_name: 'C1' },
+      { linked_signal_id: passedSignalId, project_name: 'Get Me', client_id: clientId, client_name: 'Test Client' },
       'actor-1',
     )
     const result = await getPursuitAction(pursuit.id)
@@ -153,10 +339,9 @@ describe('Pursuit Server Actions — Get & List', () => {
   })
 
   it('lists all pursuits', async () => {
-    createPursuit({ project_name: 'A', client_id: 'c1', client_name: 'C1' }, 'actor-1')
-    createPursuit({ project_name: 'B', client_id: 'c1', client_name: 'C1' }, 'actor-1')
+    createPursuit({ linked_signal_id: passedSignalId, project_name: 'A', client_id: clientId, client_name: 'Test Client' }, 'actor-1')
     const result = await listPursuitsAction()
     expect(result.success).toBe(true)
-    expect(result.data?.length).toBe(2)
+    expect(result.data?.length).toBe(1)
   })
 })

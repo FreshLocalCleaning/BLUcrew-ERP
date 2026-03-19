@@ -20,6 +20,7 @@ export const PursuitStageEnum = z.enum(PURSUIT_STAGES as unknown as [string, ...
 // ---------------------------------------------------------------------------
 
 export const createPursuitSchema = z.object({
+  linked_signal_id: z.string().min(1, 'A passed Project Signal is required to create a Pursuit'),
   project_name: z
     .string()
     .min(1, 'Project name is required')
