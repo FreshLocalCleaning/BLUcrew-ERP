@@ -17,7 +17,7 @@ function getCurrentActor() {
   return {
     id: 'system',
     name: 'System User',
-    roles: ['COM_LEAD'] as Role[],
+    roles: ['leadership_system_admin', 'commercial_bd'] as Role[],
   }
 }
 

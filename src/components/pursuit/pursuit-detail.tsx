@@ -53,7 +53,7 @@ export function PursuitDetail({ pursuit: initialPursuit, auditLog }: PursuitDeta
   const [noBidModalOpen, setNoBidModalOpen] = useState(false)
   const [noBidReason, setNoBidReason] = useState('')
 
-  const actorRoles: Role[] = ['COM_LEAD']
+  const actorRoles: Role[] = ['commercial_bd']
 
   const availableTransitions = getAvailableTransitions(
     pursuitStateMachine,

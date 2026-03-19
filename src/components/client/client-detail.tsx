@@ -43,7 +43,7 @@ export function ClientDetail({ client: initialClient, auditLog }: ClientDetailPr
   const [statusModalOpen, setStatusModalOpen] = useState(false)
 
   // Placeholder actor roles — will come from Entra session
-  const actorRoles: Role[] = ['COM_LEAD']
+  const actorRoles: Role[] = ['commercial_bd']
 
   const availableTransitions = getAvailableTransitions(
     clientStateMachine,

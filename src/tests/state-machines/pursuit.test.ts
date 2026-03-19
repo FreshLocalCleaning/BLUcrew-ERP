@@ -68,7 +68,7 @@ describe('Pursuit State Machine — Forward Progression', () => {
         currentState: from,
         targetState: to,
         entity: makeEntity(),
-        actorRoles: ['COM_LEAD'] as Role[],
+        actorRoles: ['leadership_system_admin', 'commercial_bd', 'estimating'] as Role[],
         approvalGranted: true,
       })
       expect(result.allowed).toBe(true)
@@ -99,7 +99,7 @@ describe('Pursuit State Machine — No-Bid Transitions', () => {
         currentState: from,
         targetState: 'no_bid',
         entity: makeEntity(),
-        actorRoles: ['COM_LEAD'] as Role[],
+        actorRoles: ['commercial_bd'] as Role[],
         reason: 'Out of scope',
       })
       expect(result.allowed).toBe(true)
@@ -110,7 +110,7 @@ describe('Pursuit State Machine — No-Bid Transitions', () => {
         currentState: from,
         targetState: 'no_bid',
         entity: makeEntity(),
-        actorRoles: ['COM_LEAD'] as Role[],
+        actorRoles: ['commercial_bd'] as Role[],
       })
       expect(result.allowed).toBe(false)
       expect(result.errors.some((e) => e.includes('reason'))).toBe(true)
@@ -128,7 +128,7 @@ describe('Pursuit State Machine — Terminal State', () => {
       currentState: 'no_bid',
       targetState: 'project_signal_received',
       entity: makeEntity(),
-      actorRoles: ['SYS_ADMIN'] as Role[],
+      actorRoles: ['leadership_system_admin'] as Role[],
     })
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.includes('terminal'))).toBe(true)
@@ -154,7 +154,7 @@ describe('Pursuit State Machine — Blocked Transitions', () => {
         currentState: from,
         targetState: to,
         entity: makeEntity(),
-        actorRoles: ['SYS_ADMIN'] as Role[],
+        actorRoles: ['leadership_system_admin'] as Role[],
       })
       expect(result.allowed).toBe(false)
       expect(result.errors.length).toBeGreaterThan(0)
@@ -172,7 +172,7 @@ describe('Pursuit State Machine — Role Checks', () => {
       currentState: 'project_signal_received',
       targetState: 'qualification_underway',
       entity: makeEntity(),
-      actorRoles: ['EXEC_VIEW'] as Role[],
+      actorRoles: ['readonly_stakeholder'] as Role[],
     })
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.includes('permissions'))).toBe(true)
@@ -183,7 +183,7 @@ describe('Pursuit State Machine — Role Checks', () => {
       currentState: 'project_signal_received',
       targetState: 'qualification_underway',
       entity: makeEntity(),
-      actorRoles: ['BD_OWNER'] as Role[],
+      actorRoles: ['commercial_bd'] as Role[],
     })
     expect(result.allowed).toBe(true)
   })
@@ -193,7 +193,7 @@ describe('Pursuit State Machine — Role Checks', () => {
       currentState: 'project_signal_received',
       targetState: 'qualification_underway',
       entity: makeEntity(),
-      actorRoles: ['SYS_ADMIN'] as Role[],
+      actorRoles: ['leadership_system_admin'] as Role[],
     })
     expect(result.allowed).toBe(true)
   })
@@ -203,7 +203,7 @@ describe('Pursuit State Machine — Role Checks', () => {
       currentState: 'project_signal_received',
       targetState: 'qualification_underway',
       entity: makeEntity(),
-      actorRoles: ['EST_USER'] as Role[],
+      actorRoles: ['technician'] as Role[],
     })
     expect(result.allowed).toBe(false)
   })
@@ -219,7 +219,7 @@ describe('Pursuit State Machine — Required Fields', () => {
       currentState: 'project_signal_received',
       targetState: 'qualification_underway',
       entity: { id: 'pur-1', client_id: '', project_name: '' },
-      actorRoles: ['COM_LEAD'] as Role[],
+      actorRoles: ['commercial_bd'] as Role[],
     })
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.includes('client_id'))).toBe(true)
@@ -237,7 +237,7 @@ describe('Pursuit State Machine — Approval Gate', () => {
       currentState: 'closeout_plan_drafted',
       targetState: 'closeout_plan_approved',
       entity: makeEntity(),
-      actorRoles: ['COM_LEAD'] as Role[],
+      actorRoles: ['leadership_system_admin'] as Role[],
       approvalGranted: false,
     })
     expect(result.allowed).toBe(false)
@@ -249,7 +249,7 @@ describe('Pursuit State Machine — Approval Gate', () => {
       currentState: 'closeout_plan_drafted',
       targetState: 'closeout_plan_approved',
       entity: makeEntity(),
-      actorRoles: ['COM_LEAD'] as Role[],
+      actorRoles: ['leadership_system_admin'] as Role[],
       approvalGranted: true,
     })
     expect(result.allowed).toBe(true)
@@ -266,7 +266,7 @@ describe('Pursuit State Machine — Return to Scope', () => {
       currentState: 'internal_review',
       targetState: 'scope_development',
       entity: makeEntity(),
-      actorRoles: ['COM_LEAD'] as Role[],
+      actorRoles: ['commercial_bd'] as Role[],
       reason: 'Needs more detail',
     })
     expect(result.allowed).toBe(true)
@@ -277,7 +277,7 @@ describe('Pursuit State Machine — Return to Scope', () => {
       currentState: 'internal_review',
       targetState: 'scope_development',
       entity: makeEntity(),
-      actorRoles: ['COM_LEAD'] as Role[],
+      actorRoles: ['commercial_bd'] as Role[],
     })
     expect(result.allowed).toBe(false)
     expect(result.errors.some((e) => e.includes('reason'))).toBe(true)
@@ -293,7 +293,7 @@ describe('Pursuit State Machine — Available Transitions', () => {
     const transitions = getAvailableTransitions(
       pursuitStateMachine,
       'project_signal_received',
-      ['COM_LEAD'] as Role[],
+      ['commercial_bd'] as Role[],
     )
     expect(transitions.length).toBe(2)
     const targets = transitions.map((t) => t.toState).sort()
@@ -304,16 +304,16 @@ describe('Pursuit State Machine — Available Transitions', () => {
     const transitions = getAvailableTransitions(
       pursuitStateMachine,
       'no_bid',
-      ['SYS_ADMIN'] as Role[],
+      ['leadership_system_admin'] as Role[],
     )
     expect(transitions.length).toBe(0)
   })
 
-  it('returns 3 transitions from internal_review for COM_LEAD', () => {
+  it('returns 3 transitions from internal_review for leadership + commercial + estimating', () => {
     const transitions = getAvailableTransitions(
       pursuitStateMachine,
       'internal_review',
-      ['COM_LEAD'] as Role[],
+      ['leadership_system_admin', 'commercial_bd', 'estimating'] as Role[],
     )
     expect(transitions.length).toBe(3)
     const targets = transitions.map((t) => t.toState).sort()
@@ -324,7 +324,7 @@ describe('Pursuit State Machine — Available Transitions', () => {
     const transitions = getAvailableTransitions(
       pursuitStateMachine,
       'project_signal_received',
-      ['EXEC_VIEW'] as Role[],
+      ['readonly_stakeholder'] as Role[],
     )
     expect(transitions.length).toBe(0)
   })
