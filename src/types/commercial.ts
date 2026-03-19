@@ -866,6 +866,30 @@ export interface Mobilization extends BaseEntity {
 }
 
 // ---------------------------------------------------------------------------
+// Equipment Template (reusable equipment checklist templates)
+// ---------------------------------------------------------------------------
+
+export interface EquipmentTemplateItem {
+  /** Equipment item name */
+  item: string
+  /** Default status when loaded into a mobilization */
+  default_status: 'needed' | 'packed'
+  /** Optional notes for the item */
+  notes: string | null
+}
+
+export interface EquipmentTemplate extends BaseEntity {
+  /** Template name (e.g. "Standard Interior Clean") */
+  name: string
+  /** Description of what this template is for */
+  description: string
+  /** Equipment items in this template */
+  items: EquipmentTemplateItem[]
+  /** Which build types this template applies to */
+  build_types: string[]
+}
+
+// ---------------------------------------------------------------------------
 // Change Order enums (ERP-12/13 — post-award scope revision)
 // ---------------------------------------------------------------------------
 

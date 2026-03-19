@@ -4,7 +4,7 @@
  */
 
 import * as db from './json-db'
-import type { Client, Contact, Pursuit, ProjectSignal, ProjectSignalType, Estimate, Proposal, EstimatePricingSummary, AwardHandoff, ComplianceDocItem, StartupBlockerItem, Project, Mobilization, ReadinessChecklist, EquipmentChecklistItem, ChangeOrder, PricingDelta, ExpansionTask } from '@/types/commercial'
+import type { Client, Contact, Pursuit, ProjectSignal, ProjectSignalType, Estimate, Proposal, EstimatePricingSummary, AwardHandoff, ComplianceDocItem, StartupBlockerItem, Project, Mobilization, ReadinessChecklist, EquipmentChecklistItem, ChangeOrder, PricingDelta, ExpansionTask, EquipmentTemplate, EquipmentTemplateItem } from '@/types/commercial'
 import type { ClientState } from '@/lib/state-machines/client'
 import type { ProjectSignalState } from '@/lib/state-machines/project-signal'
 import type { PursuitStage } from '@/lib/state-machines/pursuit'
@@ -1264,6 +1264,102 @@ export function seedExpansionTasks(): void {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Equipment Template seeds
+// ---------------------------------------------------------------------------
+
+interface SeedEquipmentTemplate {
+  name: string
+  description: string
+  items: EquipmentTemplateItem[]
+  build_types: string[]
+}
+
+const SEED_EQUIPMENT_TEMPLATES: SeedEquipmentTemplate[] = [
+  {
+    name: 'Standard Interior Clean',
+    description: 'Base equipment list for standard interior post-construction cleaning — covers most commercial builds.',
+    build_types: ['office_buildout', 'retail', 'mixed_use', 'restaurant', 'multifamily', 'hotel'],
+    items: [
+      { item: 'Floor Scrubber', default_status: 'needed', notes: null },
+      { item: 'Pressure Washer', default_status: 'needed', notes: null },
+      { item: 'HEPA Vacuums (x4)', default_status: 'needed', notes: 'Minimum 4 units for standard scope' },
+      { item: 'Scaffolding', default_status: 'needed', notes: 'Verify ceiling height requirements before packing' },
+      { item: 'Extension Poles (set)', default_status: 'needed', notes: null },
+      { item: 'Microfiber Kit', default_status: 'needed', notes: 'Full kit: cloths, mop heads, dusters' },
+      { item: 'Chemical Caddy', default_status: 'needed', notes: 'Pre-loaded per CLEAN methodology' },
+      { item: 'Trash Bags & Liners', default_status: 'needed', notes: 'Contractor-grade, 42-gal minimum' },
+      { item: 'PPE Kit', default_status: 'needed', notes: 'Gloves, safety glasses, dust masks, hard hats' },
+    ],
+  },
+  {
+    name: 'Gym / Fitness Clean',
+    description: 'Extended equipment list for gym, fitness center, and recreational facility cleaning with specialty surface treatment.',
+    build_types: ['gym', 'recreation', 'fitness_center'],
+    items: [
+      { item: 'Floor Scrubber', default_status: 'needed', notes: null },
+      { item: 'Pressure Washer', default_status: 'needed', notes: null },
+      { item: 'HEPA Vacuums (x4)', default_status: 'needed', notes: null },
+      { item: 'Scaffolding', default_status: 'needed', notes: null },
+      { item: 'Extension Poles (set)', default_status: 'needed', notes: null },
+      { item: 'Microfiber Kit', default_status: 'needed', notes: null },
+      { item: 'Chemical Caddy', default_status: 'needed', notes: null },
+      { item: 'Trash Bags & Liners', default_status: 'needed', notes: null },
+      { item: 'PPE Kit', default_status: 'needed', notes: null },
+      { item: 'Glass Cleaner Kit', default_status: 'needed', notes: 'Streak-free solution, squeegees, lint-free cloths' },
+      { item: 'Rubber Floor Treatment', default_status: 'needed', notes: 'Specialized rubber floor cleaner & conditioner' },
+      { item: 'Mirror Cleaning Poles', default_status: 'needed', notes: 'Telescoping poles for wall-to-wall mirrors' },
+    ],
+  },
+  {
+    name: 'Data Center Clean',
+    description: 'Specialized equipment for data center and server room cleaning — ESD-safe, raised floor capable.',
+    build_types: ['data_center', 'server_room', 'telecom'],
+    items: [
+      { item: 'HEPA Vacuums (x6)', default_status: 'needed', notes: 'Extra units for raised floor plenum work' },
+      { item: 'Anti-Static Equipment', default_status: 'needed', notes: 'Wrist straps, grounding mats, ESD smocks' },
+      { item: 'Raised Floor Tools', default_status: 'needed', notes: 'Floor tile lifters, suction cups, edge vacuums' },
+      { item: 'Air Filtration Unit', default_status: 'needed', notes: 'Portable HEPA air scrubber — pre-filter dust' },
+      { item: 'ESD-Safe Cleaning Supplies', default_status: 'needed', notes: 'Anti-static wipes, IPA solution, lint-free cloths' },
+      { item: 'PPE Kit', default_status: 'needed', notes: 'ESD-rated gloves, booties, safety glasses' },
+    ],
+  },
+  {
+    name: 'Exterior Power Wash',
+    description: 'Equipment for exterior pressure washing and facade cleaning — parking structures, building exteriors, sidewalks.',
+    build_types: ['exterior', 'parking_structure', 'facade'],
+    items: [
+      { item: 'Pressure Washer (x2)', default_status: 'needed', notes: 'Hot water capable, 3000+ PSI' },
+      { item: 'Surface Cleaner Attachment', default_status: 'needed', notes: 'Flat surface spinner for concrete/pavers' },
+      { item: 'Extension Hoses', default_status: 'needed', notes: 'Minimum 200ft total reach' },
+      { item: 'Chemical Injector', default_status: 'needed', notes: 'Downstream injector for degreaser/pre-treatment' },
+      { item: 'Water Reclaim System', default_status: 'needed', notes: 'Vacuum recovery + filtration for EPA compliance' },
+      { item: 'PPE Kit', default_status: 'needed', notes: 'Rain gear, steel-toe boots, face shield, hearing protection' },
+    ],
+  },
+]
+
+export function seedEquipmentTemplates(): void {
+  const existing = db.list('equipment_templates')
+  if (existing.length > 0) {
+    return // Already seeded
+  }
+
+  for (let i = 0; i < SEED_EQUIPMENT_TEMPLATES.length; i++) {
+    const seed = SEED_EQUIPMENT_TEMPLATES[i]!
+    db.create<EquipmentTemplate>(
+      'equipment_templates',
+      {
+        name: seed.name,
+        description: seed.description,
+        items: seed.items,
+        build_types: seed.build_types,
+      } as Omit<EquipmentTemplate, db.AutoGeneratedKeys>,
+      'system',
+    )
+  }
+}
+
 // Allow running directly
 if (typeof require !== 'undefined' && require.main === module) {
   seedClients()
@@ -1277,5 +1373,6 @@ if (typeof require !== 'undefined' && require.main === module) {
   seedMobilizations()
   seedChangeOrders()
   seedExpansionTasks()
-  console.log('Seeded 6 clients, 8 contacts, 5 project signals, 3 pursuits, 2 estimates, 1 proposal, 1 award/handoff, 1 project, 2 mobilizations, 1 change order, and 1 expansion task.')
+  seedEquipmentTemplates()
+  console.log('Seeded all entities including 4 equipment templates.')
 }

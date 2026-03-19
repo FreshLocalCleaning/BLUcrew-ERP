@@ -21,6 +21,7 @@ import type {
   Mobilization,
   EquipmentChecklistItem,
   EquipmentStatus,
+  EquipmentTemplate,
   ReadinessChecklist,
   LodgingDetails,
   MobilizationTravelPosture,
@@ -28,6 +29,7 @@ import type {
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
 import Link from 'next/link'
+import { createEquipmentTemplateAction } from '@/actions/equipment-template'
 import {
   ArrowLeftRight,
   FileText,
@@ -45,6 +47,8 @@ import {
   Pencil,
   X,
   Save,
+  ChevronDown,
+  BookTemplate,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -67,6 +71,7 @@ const ALL_TECHNICIANS = ['tech-001', 'tech-002', 'tech-003', 'tech-004', 'tech-0
 interface MobilizationDetailProps {
   mobilization: Mobilization
   auditLog: AuditEntry[]
+  equipmentTemplates?: EquipmentTemplate[]
 }
 
 function formatDate(iso?: string | null): string {
@@ -84,7 +89,7 @@ function crewName(id: string): string {
 
 type Tab = 'planning' | 'readiness' | 'field_reports' | 'qc_completion' | 'activity'
 
-export function MobilizationDetail({ mobilization: initial, auditLog }: MobilizationDetailProps) {
+export function MobilizationDetail({ mobilization: initial, auditLog, equipmentTemplates = [] }: MobilizationDetailProps) {
   const router = useRouter()
   const [mobilization, setMobilization] = useState(initial)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -109,6 +114,13 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
   const [editLodgingCheckOut, setEditLodgingCheckOut] = useState(mobilization.lodging_details?.check_out ?? '')
   const [newEquipItem, setNewEquipItem] = useState('')
   const [expandedEquipIdx, setExpandedEquipIdx] = useState<number | null>(null)
+  const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false)
+  const [confirmTemplateLoad, setConfirmTemplateLoad] = useState<EquipmentTemplate | null>(null)
+  const [saveTemplateModalOpen, setSaveTemplateModalOpen] = useState(false)
+  const [saveTemplateName, setSaveTemplateName] = useState('')
+  const [saveTemplateDesc, setSaveTemplateDesc] = useState('')
+  const [saveTemplateBuildTypes, setSaveTemplateBuildTypes] = useState('')
+  const [savingTemplate, setSavingTemplate] = useState(false)
 
   const actorRoles: Role[] = ['leadership_system_admin', 'pm_ops']
 
@@ -243,6 +255,58 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
     if (!newEquipItem.trim()) return
     setEditEquipment(prev => [...prev, { item: newEquipItem.trim(), status: 'needed', notes: null }])
     setNewEquipItem('')
+  }
+
+  function handleLoadTemplate(template: EquipmentTemplate) {
+    if (editEquipment.length > 0) {
+      setConfirmTemplateLoad(template)
+    } else {
+      applyTemplate(template)
+    }
+    setTemplateDropdownOpen(false)
+  }
+
+  function applyTemplate(template: EquipmentTemplate) {
+    const items: EquipmentChecklistItem[] = template.items.map(t => ({
+      item: t.item,
+      status: t.default_status === 'packed' ? 'packed' : 'needed',
+      notes: t.notes,
+    }))
+    setEditEquipment(items)
+    setConfirmTemplateLoad(null)
+    toast.success(`Loaded template: ${template.name}`)
+  }
+
+  async function handleSaveAsTemplate() {
+    if (!saveTemplateName.trim()) {
+      toast.error('Template name is required')
+      return
+    }
+    setSavingTemplate(true)
+    const currentItems = editing ? editEquipment : mobilization.equipment_checklist
+    const result = await createEquipmentTemplateAction({
+      name: saveTemplateName.trim(),
+      description: saveTemplateDesc.trim(),
+      items: currentItems.map(item => ({
+        item: item.item,
+        default_status: item.status === 'packed' ? 'packed' as const : 'needed' as const,
+        notes: item.notes,
+      })),
+      build_types: saveTemplateBuildTypes.trim()
+        ? saveTemplateBuildTypes.split(',').map(s => s.trim()).filter(Boolean)
+        : [],
+    })
+    if (result.success) {
+      toast.success(`Template "${saveTemplateName}" saved`)
+      setSaveTemplateModalOpen(false)
+      setSaveTemplateName('')
+      setSaveTemplateDesc('')
+      setSaveTemplateBuildTypes('')
+      router.refresh()
+    } else {
+      toast.error(result.error ?? 'Failed to save template')
+    }
+    setSavingTemplate(false)
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -437,7 +501,55 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
 
             {/* Equipment Checklist */}
             <div className="rounded-lg border border-border bg-card p-6">
-              <h2 className="mb-4 text-lg font-semibold text-foreground">Equipment Checklist</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-foreground">Equipment Checklist</h2>
+                <div className="flex items-center gap-2">
+                  {/* Load Template dropdown */}
+                  {editing && equipmentTemplates.length > 0 && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setTemplateDropdownOpen(!templateDropdownOpen)}
+                        className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
+                      >
+                        <BookTemplate className="h-3.5 w-3.5" />
+                        Load Template
+                        <ChevronDown className="h-3 w-3" />
+                      </button>
+                      {templateDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setTemplateDropdownOpen(false)} />
+                          <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-md border border-border bg-card shadow-lg">
+                            <div className="max-h-64 overflow-y-auto p-1">
+                              {equipmentTemplates.map(t => (
+                                <button
+                                  key={t.id}
+                                  onClick={() => handleLoadTemplate(t)}
+                                  className="flex w-full flex-col items-start rounded px-3 py-2 text-left hover:bg-muted/50"
+                                >
+                                  <span className="text-sm font-medium text-foreground">{t.name}</span>
+                                  <span className="text-xs text-muted-foreground">{t.items.length} items{t.build_types.length > 0 ? ` · ${t.build_types.slice(0, 2).join(', ')}` : ''}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {/* Save as Template */}
+                  {(editing ? editEquipment.length > 0 : mobilization.equipment_checklist.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => setSaveTemplateModalOpen(true)}
+                      className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      Save as Template
+                    </button>
+                  )}
+                </div>
+              </div>
               {!editing ? (
                 mobilization.equipment_checklist.length > 0 ? (
                   <div className="space-y-2">
@@ -761,6 +873,102 @@ export function MobilizationDetail({ mobilization: initial, auditLog }: Mobiliza
           onToggle={handleReadinessToggle}
         />
       </div>
+
+      {/* Confirm Template Load Modal */}
+      {confirmTemplateLoad && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmTemplateLoad(null)} />
+          <div className="relative w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-foreground">Replace current checklist?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This will replace {editEquipment.length} existing item{editEquipment.length !== 1 ? 's' : ''} with
+              the <strong>{confirmTemplateLoad.name}</strong> template ({confirmTemplateLoad.items.length} items).
+            </p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmTemplateLoad(null)}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => applyTemplate(confirmTemplateLoad)}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Replace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save as Template Modal */}
+      {saveTemplateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSaveTemplateModalOpen(false)} />
+          <div className="relative w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-foreground">Save as Equipment Template</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Save the current {(editing ? editEquipment : mobilization.equipment_checklist).length} item{(editing ? editEquipment : mobilization.equipment_checklist).length !== 1 ? 's' : ''} as a reusable template.
+            </p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground">
+                  Template Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={saveTemplateName}
+                  onChange={e => setSaveTemplateName(e.target.value)}
+                  placeholder="e.g. Hospital Deep Clean"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground">Description</label>
+                <textarea
+                  value={saveTemplateDesc}
+                  onChange={e => setSaveTemplateDesc(e.target.value)}
+                  placeholder="What type of job is this template for?"
+                  rows={2}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground">Build Types</label>
+                <input
+                  type="text"
+                  value={saveTemplateBuildTypes}
+                  onChange={e => setSaveTemplateBuildTypes(e.target.value)}
+                  placeholder="Comma-separated: office_buildout, retail, gym"
+                  className={inputClass}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Optional. Helps filter templates by project type.</p>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setSaveTemplateModalOpen(false)
+                  setSaveTemplateName('')
+                  setSaveTemplateDesc('')
+                  setSaveTemplateBuildTypes('')
+                }}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveAsTemplate}
+                disabled={savingTemplate || !saveTemplateName.trim()}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {savingTemplate ? 'Saving...' : 'Save Template'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Change Modal */}
       <StatusChangeModal
