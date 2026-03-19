@@ -1,84 +1,133 @@
 import {
-  Users,
+  Zap,
+  Clock,
+  TrendingUp,
   Target,
   FileText,
-  Award,
-  TrendingUp,
-  Clock,
+  Users,
+  Truck,
 } from 'lucide-react'
-
-const STATS = [
-  { label: 'Active Clients', value: '—', icon: Users, color: 'text-blue-400' },
-  { label: 'Open Pursuits', value: '—', icon: Target, color: 'text-cyan-400' },
-  { label: 'Pending Proposals', value: '—', icon: FileText, color: 'text-amber-400' },
-  { label: 'Active Awards', value: '—', icon: Award, color: 'text-green-400' },
-  { label: 'Pipeline Value', value: '—', icon: TrendingUp, color: 'text-purple-400' },
-  { label: 'Pending Approvals', value: '—', icon: Clock, color: 'text-red-400' },
-]
+import { KpiCard } from '@/components/dashboard/kpi-card'
+import { PipelineChart } from '@/components/dashboard/pipeline-chart'
+import { ProposalAgingChart } from '@/components/dashboard/proposal-aging-chart'
+import { AlertsFeed } from '@/components/dashboard/alerts-feed'
+import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import {
+  signalToPursuitConversion,
+  estimateReadyCycleTime,
+  winRate,
+  proposalAgingByBucket,
+  jobsAwaitingPMClaim,
+  readinessPassRate,
+  pipelineValueByStage,
+  activeAlerts,
+  recentActivity,
+} from '@/lib/analytics/kpi-engine'
+import {
+  seedClients,
+  seedContacts,
+  seedProjectSignals,
+  seedPursuits,
+  seedEstimates,
+  seedProposals,
+  seedAwardHandoffs,
+  seedProjects,
+  seedMobilizations,
+  seedChangeOrders,
+  seedExpansionTasks,
+} from '@/lib/db/seed'
 
 export default function HomePage() {
+  // Seed data
+  seedClients()
+  seedContacts()
+  seedProjectSignals()
+  seedPursuits()
+  seedEstimates()
+  seedProposals()
+  seedAwardHandoffs()
+  seedProjects()
+  seedMobilizations()
+  seedChangeOrders()
+  seedExpansionTasks()
+
+  // Calculate KPIs
+  const signalConv = signalToPursuitConversion()
+  const estCycle = estimateReadyCycleTime()
+  const wr = winRate()
+  const proposalAging = proposalAgingByBucket()
+  const pmClaim = jobsAwaitingPMClaim()
+  const readiness = readinessPassRate()
+  const pipeline = pipelineValueByStage()
+  const alerts = activeAlerts()
+  const activity = recentActivity(10)
+
   return (
     <div className="space-y-8">
       {/* Page heading */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          BLU Crew Commercial Pipeline — Overview
+          BLU Crew Commercial ERP — Leadership Overview
         </p>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {STATS.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <div
-              key={stat.label}
-              className="rounded-lg border border-border bg-card p-5"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {stat.label}
-                </p>
-                <Icon className={`h-5 w-5 ${stat.color}`} />
-              </div>
-              <p className="mt-2 text-3xl font-bold text-foreground">
-                {stat.value}
-              </p>
-            </div>
-          )
-        })}
+      {/* KPI Summary Strip */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard
+          label="Signal→Pursuit"
+          value={`${Math.round(signalConv.rate * 100)}%`}
+          subtitle={`${signalConv.converted} of ${signalConv.passed} signals`}
+          icon={Zap}
+          color="text-blue-400"
+        />
+        <KpiCard
+          label="Est. Ready Cycle"
+          value={`${estCycle.median_days}d`}
+          subtitle={`${estCycle.sample_count} pursuits`}
+          icon={Clock}
+          color="text-cyan-400"
+        />
+        <KpiCard
+          label="Win Rate (90d)"
+          value={`${Math.round(wr.rate * 100)}%`}
+          subtitle={`${wr.accepted}W / ${wr.rejected}L`}
+          icon={TrendingUp}
+          color="text-green-400"
+        />
+        <KpiCard
+          label="Active Proposals"
+          value={String(proposalAging.total)}
+          subtitle="Delivered / In Review"
+          icon={FileText}
+          color="text-amber-400"
+        />
+        <KpiCard
+          label="Awaiting PM Claim"
+          value={String(pmClaim)}
+          subtitle="Handoff posted"
+          icon={Users}
+          color="text-purple-400"
+        />
+        <KpiCard
+          label="Readiness Pass"
+          value={`${Math.round(readiness.rate * 100)}%`}
+          subtitle={`${readiness.first_attempt} of ${readiness.total} mobs`}
+          icon={Truck}
+          color="text-emerald-400"
+        />
       </div>
 
-      {/* Placeholder sections */}
+      {/* Charts row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="text-lg font-semibold text-foreground">
-            Pipeline Chart
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Recharts pipeline visualization will render here.
-          </p>
-          <div className="mt-4 flex h-48 items-center justify-center rounded-md border border-dashed border-border">
-            <span className="text-sm text-muted-foreground">
-              Chart placeholder
-            </span>
-          </div>
-        </div>
+        <PipelineChart data={pipeline} />
+        <ProposalAgingChart data={proposalAging} />
+      </div>
 
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="text-lg font-semibold text-foreground">
-            Recent Activity
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Activity timeline will render here.
-          </p>
-          <div className="mt-4 flex h-48 items-center justify-center rounded-md border border-dashed border-border">
-            <span className="text-sm text-muted-foreground">
-              Timeline placeholder
-            </span>
-          </div>
-        </div>
+      {/* Alerts + Activity row */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <AlertsFeed alerts={alerts} limit={10} />
+        <ActivityFeed entries={activity} />
       </div>
     </div>
   )

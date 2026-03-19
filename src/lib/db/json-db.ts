@@ -46,6 +46,20 @@ export interface AuditEntry {
   reason?: string
 }
 
+export interface IntegrationEvent {
+  id: string
+  event_type: string
+  source_entity: string
+  source_id: string
+  payload: Record<string, unknown>
+  timestamp: string
+  status: 'pending' | 'sent' | 'failed' | 'manual_override'
+  target_system: string
+  retry_count: number
+  failure_reason: string | null
+  manual_override_note: string | null
+}
+
 export interface DatabaseSchema {
   clients: Record<string, BaseEntity & Record<string, unknown>>
   contacts: Record<string, BaseEntity & Record<string, unknown>>
@@ -58,6 +72,7 @@ export interface DatabaseSchema {
   mobilizations: Record<string, BaseEntity & Record<string, unknown>>
   change_orders: Record<string, BaseEntity & Record<string, unknown>>
   expansion_tasks: Record<string, BaseEntity & Record<string, unknown>>
+  integration_events: IntegrationEvent[]
   audit_log: AuditEntry[]
 }
 
@@ -87,6 +102,7 @@ function emptyDb(): DatabaseSchema {
     mobilizations: {},
     change_orders: {},
     expansion_tasks: {},
+    integration_events: [],
     audit_log: [],
   }
 }
@@ -299,6 +315,46 @@ export function getAuditLog(
   return db.audit_log.filter(
     (e) => e.entity_type === entityType && e.entity_id === entityId,
   )
+}
+
+// ---------------------------------------------------------------------------
+// Integration Events API
+// ---------------------------------------------------------------------------
+
+/** Append an integration event. */
+export function addIntegrationEvent(event: IntegrationEvent): void {
+  const db = readDb()
+  db.integration_events.push(event)
+  writeDb(db)
+}
+
+/** List all integration events (optionally filtered). */
+export function listIntegrationEvents(filter?: {
+  status?: IntegrationEvent['status']
+  target_system?: string
+}): IntegrationEvent[] {
+  const db = readDb()
+  let events = db.integration_events
+  if (filter?.status) {
+    events = events.filter((e) => e.status === filter.status)
+  }
+  if (filter?.target_system) {
+    events = events.filter((e) => e.target_system === filter.target_system)
+  }
+  return events
+}
+
+/** Update an integration event by ID. */
+export function updateIntegrationEvent(
+  eventId: string,
+  changes: Partial<IntegrationEvent>,
+): IntegrationEvent | undefined {
+  const db = readDb()
+  const idx = db.integration_events.findIndex((e) => e.id === eventId)
+  if (idx === -1) return undefined
+  db.integration_events[idx] = { ...db.integration_events[idx]!, ...changes }
+  writeDb(db)
+  return db.integration_events[idx]
 }
 
 /** Reset the database (for testing only). */

@@ -18,6 +18,7 @@ import {
 import type { Mobilization } from '@/types/commercial'
 import type { MobilizationState } from '@/lib/state-machines/mobilization'
 import type { Role } from '@/lib/permissions/roles'
+import { dispatchEvent } from '@/lib/integrations/event-bus'
 
 // ---------------------------------------------------------------------------
 // Placeholder: get current actor from session
@@ -185,6 +186,26 @@ export async function transitionMobilizationAction(
     actor.id,
     reason ?? `Status changed to ${MOBILIZATION_STATE_LABELS[target_status as MobilizationState] ?? target_status}`,
   )
+
+  // Integration event dispatches
+  if (target_status === 'ready') {
+    dispatchEvent({
+      event_type: 'mobilization.ready.v1',
+      source_entity: 'mobilizations',
+      source_id: mobilization_id,
+      target_system: 'teams',
+      payload: { stage_name: mobilization.stage_name, project_id: mobilization.linked_project_id },
+    })
+  }
+  if (target_status === 'complete') {
+    dispatchEvent({
+      event_type: 'mobilization.completed.v1',
+      source_entity: 'mobilizations',
+      source_id: mobilization_id,
+      target_system: 'jobber',
+      payload: { stage_name: mobilization.stage_name, project_id: mobilization.linked_project_id },
+    })
+  }
 
   return { success: true, data: updated }
 }
