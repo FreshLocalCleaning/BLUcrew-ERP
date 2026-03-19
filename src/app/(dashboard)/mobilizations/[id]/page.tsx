@@ -5,6 +5,7 @@ import { getMobilization } from '@/lib/db/mobilizations'
 import { getProject } from '@/lib/db/projects'
 import { getAuditLog } from '@/lib/db/json-db'
 import { MobilizationDetail } from '@/components/mobilization/mobilization-detail'
+import { listEquipmentTemplates } from '@/lib/db/equipment-templates'
 import {
   seedClients,
   seedContacts,
@@ -15,6 +16,7 @@ import {
   seedAwardHandoffs,
   seedProjects,
   seedMobilizations,
+  seedEquipmentTemplates,
 } from '@/lib/db/seed'
 
 interface MobilizationDetailPageProps {
@@ -33,6 +35,7 @@ export default async function MobilizationDetailPage({ params }: MobilizationDet
   seedAwardHandoffs()
   seedProjects()
   seedMobilizations()
+  seedEquipmentTemplates()
 
   const mobilization = getMobilization(id)
   if (!mobilization) {
@@ -41,6 +44,7 @@ export default async function MobilizationDetailPage({ params }: MobilizationDet
 
   const project = getProject(mobilization.linked_project_id)
   const auditLog = getAuditLog('mobilizations', id)
+  const equipmentTemplates = listEquipmentTemplates()
 
   return (
     <div className="space-y-6">
@@ -69,7 +73,7 @@ export default async function MobilizationDetailPage({ params }: MobilizationDet
         </p>
       </div>
 
-      <MobilizationDetail mobilization={mobilization} auditLog={auditLog} />
+      <MobilizationDetail mobilization={mobilization} auditLog={auditLog} equipmentTemplates={equipmentTemplates} />
     </div>
   )
 }

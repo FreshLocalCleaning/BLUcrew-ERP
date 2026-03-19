@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plug, Shield, ClipboardCheck } from 'lucide-react'
+import { Plug, ClipboardCheck, Package } from 'lucide-react'
 
 const ADMIN_SECTIONS = [
   {
@@ -13,6 +13,12 @@ const ADMIN_SECTIONS = [
     description: 'Go-live gate verification, migration wave status, and system health checks per ERP-19',
     href: '/admin/cutover',
     icon: ClipboardCheck,
+  },
+  {
+    label: 'Equipment Templates',
+    description: 'Manage reusable equipment checklist templates for mobilizations — standard kits, specialty gear',
+    href: '/admin/equipment-templates',
+    icon: Package,
   },
 ]
 
