@@ -140,7 +140,21 @@ function ensureDbExists(): void {
 function readDb(): DatabaseSchema {
   ensureDbExists()
   const raw = fs.readFileSync(DB_PATH, 'utf-8')
-  return JSON.parse(raw) as DatabaseSchema
+  const data = JSON.parse(raw) as DatabaseSchema
+  // Backfill any collections added after initial DB creation
+  const defaults = emptyDb()
+  let patched = false
+  for (const key of Object.keys(defaults) as (keyof DatabaseSchema)[]) {
+    if (!(key in data)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(data as any)[key] = defaults[key]
+      patched = true
+    }
+  }
+  if (patched) {
+    writeDb(data)
+  }
+  return data
 }
 
 function writeDb(data: DatabaseSchema): void {
@@ -173,7 +187,9 @@ export function getById<T extends BaseEntity>(
   id: string,
 ): T | undefined {
   const db = readDb()
-  const entity = (db[collection] as Record<string, BaseEntity & Record<string, unknown>>)[id] as T | undefined
+  const col = db[collection] as Record<string, BaseEntity & Record<string, unknown>> | undefined
+  if (!col) return undefined
+  const entity = col[id] as T | undefined
   if (!entity || entity.archive_state === 'archived') return undefined
   return entity
 }
@@ -183,7 +199,8 @@ export function list<T extends BaseEntity>(
   collection: EntityCollectionName,
 ): T[] {
   const db = readDb()
-  const col = db[collection] as Record<string, BaseEntity & Record<string, unknown>>
+  const col = db[collection] as Record<string, BaseEntity & Record<string, unknown>> | undefined
+  if (!col) return [] as T[]
   return Object.values(col).filter(
     (e) => e.archive_state !== 'archived',
   ) as T[]
