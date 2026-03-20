@@ -69,9 +69,9 @@ const columns = [
     cell: (info) => {
       const val = info.getValue()
       const colors: Record<ClientTier, string> = {
-        A: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-        B: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-        C: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        A: 'text-green-300 bg-green-900/50',
+        B: 'text-amber-300 bg-amber-900/50',
+        C: 'text-slate-300 bg-slate-800',
       }
       return (
         <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', colors[val])}>
@@ -93,13 +93,13 @@ const columns = [
       const val = info.getValue()
       if (!val) return '—'
       const colors: Record<string, string> = {
-        cold: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-        developing: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
-        active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-        trusted: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+        cold: 'text-slate-300 bg-slate-800',
+        developing: 'text-cyan-300 bg-cyan-900/50',
+        active: 'text-green-300 bg-green-900/50',
+        trusted: 'text-purple-300 bg-purple-900/50',
       }
       return (
-        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colors[val] ?? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', colors[val] ?? 'text-slate-300 bg-slate-800')}>
           {CLIENT_RELATIONSHIP_LABELS[val]}
         </span>
       )
