@@ -48,25 +48,25 @@ export function PipelineChart({ data }: PipelineChartProps) {
       </div>
 
       {/* Funnel stages */}
-      <div className="mt-5 flex items-stretch gap-1">
+      <div className="mt-5 grid gap-1" style={{ gridTemplateColumns: data.map(() => '1fr').join(' auto ') }}>
         {data.map((stage, i) => {
           const colors = getStageColor(stage.stage)
           const hasRecords = stage.count > 0
 
           return (
-            <div key={stage.stage} className="flex items-stretch">
+            <>
               <Link
+                key={stage.stage}
                 href={stage.href}
                 className={cn(
-                  'group relative flex flex-col items-center justify-center rounded-lg border px-3 py-4 transition-all hover:scale-105',
-                  'min-w-[90px] flex-1',
+                  'group relative flex flex-col items-center justify-center rounded-lg border px-2 py-5 transition-all hover:scale-[1.03]',
                   hasRecords ? colors.border : 'border-border',
                   hasRecords ? colors.bg : 'bg-card',
                 )}
               >
                 {/* Count */}
                 <span className={cn(
-                  'text-2xl font-bold',
+                  'text-3xl font-bold',
                   hasRecords ? colors.text : 'text-muted-foreground/50',
                 )}>
                   {stage.count}
@@ -74,7 +74,7 @@ export function PipelineChart({ data }: PipelineChartProps) {
 
                 {/* Label */}
                 <span className={cn(
-                  'mt-1 text-[10px] font-medium text-center leading-tight',
+                  'mt-1.5 text-xs font-medium text-center leading-tight',
                   hasRecords ? colors.text : 'text-muted-foreground/60',
                 )}>
                   {stage.label}
@@ -82,24 +82,24 @@ export function PipelineChart({ data }: PipelineChartProps) {
 
                 {/* Value */}
                 {stage.value > 0 && (
-                  <span className="mt-1 text-[9px] text-muted-foreground">
+                  <span className="mt-1 text-[10px] text-muted-foreground">
                     {formatValue(stage.value)}
                   </span>
                 )}
 
                 {/* Active dot indicator */}
                 {hasRecords && (
-                  <span className={cn('absolute top-2 right-2 h-1.5 w-1.5 rounded-full', colors.dot)} />
+                  <span className={cn('absolute top-2 right-2 h-2 w-2 rounded-full', colors.dot)} />
                 )}
               </Link>
 
               {/* Arrow between stages */}
               {i < data.length - 1 && (
-                <div className="flex items-center px-0.5">
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30" />
+                <div key={`arrow-${i}`} className="flex items-center justify-center">
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
                 </div>
               )}
-            </div>
+            </>
           )
         })}
       </div>
