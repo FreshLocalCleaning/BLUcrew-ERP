@@ -414,6 +414,12 @@ export function SignalDetail({ signal: initialSignal, auditLog, clientName, clie
           ) : (
             /* --- Read Mode --- */
             <>
+              {/* Project Identity — the key field */}
+              <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <p className="text-xs font-medium uppercase text-primary/70">Project</p>
+                <p className="mt-0.5 text-lg font-semibold text-foreground">{signal.project_identity}</p>
+              </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <DetailItem icon={FileText} label="Reference ID" value={signal.reference_id} mono />
                 <DetailItem icon={Zap} label="Signal Type" value={PROJECT_SIGNAL_TYPE_LABELS[signal.signal_type]} />
