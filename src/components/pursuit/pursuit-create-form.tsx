@@ -40,6 +40,14 @@ function mapSignalTypeToPursuitType(signalType: ProjectSignalType): PursuitSigna
   return mapping[signalType]
 }
 
+/** Map client vertical to pursuit client type */
+function mapVerticalToClientType(vertical: string | null | undefined): 'gc' | 'owner' | 'other' | undefined {
+  if (!vertical) return undefined
+  if (vertical === 'general_contractor') return 'gc'
+  if (vertical === 'owner_developer') return 'owner'
+  return 'other'
+}
+
 /** Build combined notes from signal fields so nothing is lost */
 function buildNotesFromSignal(signal: { source_evidence: string; timing_signal: string | null; fit_risk_note: string | null; notes?: string }): string {
   const parts: string[] = []
@@ -78,9 +86,9 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
   const [milestones, setMilestones] = useState<PursuitMilestone[]>(createDefaultMilestones())
   const [newMilestoneName, setNewMilestoneName] = useState('')
 
-  // Pre-fill signal type mapping and combined notes from signal
+  // Pre-fill signal type mapping and client type from client's vertical
   const preSignalType = preSignal ? mapSignalTypeToPursuitType(preSignal.signal_type) : undefined
-  const preNotes = preSignal ? buildNotesFromSignal(preSignal) : ''
+  const preClientType = mapVerticalToClientType(preClient?.vertical)
 
   const {
     register,
@@ -97,9 +105,10 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
       primary_contact_id: preSignal?.linked_contact_id ?? '',
       primary_contact_name: preSignal?.linked_contact_name ?? '',
       signal_type: preSignalType,
-      next_action: preSignal?.next_action ?? '',
-      next_action_date: preSignal?.next_action_date ?? '',
-      notes: preNotes,
+      client_type: preClientType,
+      next_action: '',
+      next_action_date: '',
+      notes: '',
     },
   })
 
@@ -144,18 +153,11 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
         setValue('signal_type', mappedType)
       }
 
-      // Carry over next action
-      if (signal.next_action) {
-        setValue('next_action', signal.next_action)
-      }
-      if (signal.next_action_date) {
-        setValue('next_action_date', signal.next_action_date)
-      }
-
-      // Combine signal fields into notes so nothing is lost
-      const combinedNotes = buildNotesFromSignal(signal)
-      if (combinedNotes) {
-        setValue('notes', combinedNotes)
+      // Auto-fill client type from client's vertical
+      const client = clients.find((c) => c.id === signal.linked_client_id)
+      const clientType = mapVerticalToClientType(client?.vertical)
+      if (clientType) {
+        setValue('client_type', clientType)
       }
     }
   }
@@ -166,6 +168,9 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
     setValue('client_id', clientId)
     const client = clients.find((c) => c.id === clientId)
     setValue('client_name', client?.name ?? '')
+    // Auto-fill client type from client's vertical
+    const clientType = mapVerticalToClientType(client?.vertical)
+    setValue('client_type', clientType ?? '')
     setValue('primary_contact_id', '')
     setValue('primary_contact_name', '')
     setSelectedContactId('')
@@ -523,7 +528,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Next Action</label>
-            <input {...register('next_action')} type="text" placeholder="e.g. Schedule site walk with GC" className={INPUT_CLS} />
+            <input {...register('next_action')} type="text" autoComplete="off" placeholder="e.g. Schedule site walk with GC" className={INPUT_CLS} />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Next Action Date</label>
