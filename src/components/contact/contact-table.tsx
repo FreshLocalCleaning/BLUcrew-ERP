@@ -59,9 +59,11 @@ const columns = [
       const c = info.row.original
       return (
         <div className="flex items-center gap-2 whitespace-nowrap">
-          {c.is_champion && (
-            <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
-          )}
+          <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+            {c.is_champion && (
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+            )}
+          </span>
           <Link
             href={`/contacts/${c.id}`}
             className="font-medium hover:underline"
