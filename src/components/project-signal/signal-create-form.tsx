@@ -185,6 +185,7 @@ export function SignalCreateForm({ clients, contacts }: SignalCreateFormProps) {
             <input
               {...register('next_action')}
               type="text"
+              autoComplete="off"
               placeholder="e.g. Verify project scope with contact"
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
