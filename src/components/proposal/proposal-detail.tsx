@@ -16,6 +16,7 @@ import { PROPOSAL_ACCEPTANCE_METHOD_LABELS } from '@/types/commercial'
 import type { Proposal, ProposalAcceptanceMethod } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
+import Link from 'next/link'
 import {
   ArrowLeftRight,
   FileText,
@@ -26,6 +27,8 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Circle,
+  ArrowRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -133,9 +136,11 @@ export function ProposalDetail({ proposal: initialProposal, auditLog }: Proposal
           currentState={proposal.status}
           stateLabel={PROPOSAL_STATUS_LABELS[proposal.status]}
           nextAction={
-            proposal.next_action
-              ? `${proposal.next_action}${dueDate ? ` (due ${dueDate})` : ''}`
-              : undefined
+            isTerminal
+              ? undefined
+              : proposal.next_action
+                ? `${proposal.next_action}${dueDate ? ` (due ${dueDate})` : ''}`
+                : undefined
           }
         />
 
@@ -245,11 +250,64 @@ export function ProposalDetail({ proposal: initialProposal, auditLog }: Proposal
 
       {/* Right Sidebar */}
       <div className="hidden w-72 shrink-0 space-y-6 lg:block">
+        {/* Status Progression */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Status Progression
+          </h3>
+          <div className="space-y-1">
+            {(['delivered', 'in_review', 'accepted'] as const).map((s) => {
+              const isCurrent = proposal.status === s
+              const isPast = (['delivered', 'in_review', 'accepted'] as const).indexOf(proposal.status as typeof s) > (['delivered', 'in_review', 'accepted'] as const).indexOf(s)
+              const isRejected = proposal.status === 'rejected'
+              return (
+                <div key={s} className="flex items-center gap-2 py-1">
+                  {isPast || isCurrent ? (
+                    <CheckCircle2 className={cn('h-4 w-4', isCurrent ? 'text-green-400' : 'text-green-600/60')} />
+                  ) : (
+                    <Circle className="h-4 w-4 text-muted-foreground/40" />
+                  )}
+                  <span className={cn('text-sm', isCurrent ? 'font-semibold text-foreground' : isPast ? 'text-muted-foreground' : 'text-muted-foreground/50')}>
+                    {PROPOSAL_STATUS_LABELS[s]}
+                  </span>
+                </div>
+              )
+            })}
+            {proposal.status === 'rejected' && (
+              <div className="flex items-center gap-2 py-1">
+                <XCircle className="h-4 w-4 text-red-400" />
+                <span className="text-sm font-semibold text-red-400">Rejected</span>
+              </div>
+            )}
+            {(proposal.status === 'hold' || proposal.status === 'dormant') && (
+              <div className="flex items-center gap-2 py-1">
+                <Circle className="h-4 w-4 text-amber-400" />
+                <span className="text-sm font-semibold text-amber-400">
+                  {PROPOSAL_STATUS_LABELS[proposal.status]}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Actions */}
         <div className="space-y-3">
           <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Actions
           </h3>
+
+          {/* Link to Award when accepted */}
+          {proposal.status === 'accepted' && proposal.created_award_id && (
+            <Link
+              href={`/handoffs/${proposal.created_award_id}`}
+              className="flex w-full items-center gap-2 rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
+            >
+              <ArrowRight className="h-4 w-4" />
+              View Award/Handoff
+            </Link>
+          )}
+
+          {/* Change Status — only when not terminal */}
           {!isTerminal && (
             <button
               onClick={() => setStatusModalOpen(true)}
@@ -258,6 +316,30 @@ export function ProposalDetail({ proposal: initialProposal, auditLog }: Proposal
               <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
               Change Status
             </button>
+          )}
+
+          {/* Quick info when accepted */}
+          {proposal.status === 'accepted' && (
+            <div className="rounded-lg border border-green-800/30 bg-green-900/10 p-3">
+              <p className="text-xs font-medium text-green-400">Won</p>
+              <p className="mt-0.5 text-lg font-bold text-green-300">{formatCurrency(proposal.proposal_value)}</p>
+              {proposal.acceptance_confirmation_method && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  via {PROPOSAL_ACCEPTANCE_METHOD_LABELS[proposal.acceptance_confirmation_method]}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Quick info when rejected */}
+          {proposal.status === 'rejected' && (
+            <div className="rounded-lg border border-red-800/30 bg-red-900/10 p-3">
+              <p className="text-xs font-medium text-red-400">Lost</p>
+              <p className="mt-0.5 text-lg font-bold text-red-300">{formatCurrency(proposal.proposal_value)}</p>
+              {proposal.accepted_rejected_reason && (
+                <p className="mt-1 text-xs text-muted-foreground">{proposal.accepted_rejected_reason}</p>
+              )}
+            </div>
           )}
         </div>
       </div>
