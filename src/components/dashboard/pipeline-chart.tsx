@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import type { PipelineStage } from '@/lib/analytics/kpi-engine'
 import { cn } from '@/lib/utils'
@@ -54,9 +55,8 @@ export function PipelineChart({ data }: PipelineChartProps) {
           const hasRecords = stage.count > 0
 
           return (
-            <>
+            <React.Fragment key={stage.stage}>
               <Link
-                key={stage.stage}
                 href={stage.href}
                 className={cn(
                   'group relative flex flex-col items-center justify-center rounded-lg border px-2 py-5 transition-all hover:scale-[1.03]',
@@ -95,11 +95,11 @@ export function PipelineChart({ data }: PipelineChartProps) {
 
               {/* Arrow between stages */}
               {i < data.length - 1 && (
-                <div key={`arrow-${i}`} className="flex items-center justify-center">
+                <div className="flex items-center justify-center">
                   <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
                 </div>
               )}
-            </>
+            </React.Fragment>
           )
         })}
       </div>
