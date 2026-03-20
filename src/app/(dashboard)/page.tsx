@@ -18,6 +18,7 @@ import {
   clientTierBreakdown,
   lossReasonDistribution,
   opsHealthSnapshot,
+  contactFollowupCounts,
 } from '@/lib/analytics/kpi-engine'
 import {
   seedClients,
@@ -61,6 +62,7 @@ export default function HomePage() {
   const tiers = clientTierBreakdown()
   const lossReasons = lossReasonDistribution()
   const opsData = opsHealthSnapshot()
+  const contactFollowups = contactFollowupCounts()
 
   return (
     <div className="space-y-8">
@@ -73,7 +75,7 @@ export default function HomePage() {
       </div>
 
       {/* SECTION 1 — KPI Summary Strip */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         <KpiCard
           label="Signal→Pursuit"
           value={`${Math.round(signalConv.rate * 100)}%`}
@@ -121,6 +123,14 @@ export default function HomePage() {
           icon="truck"
           color="text-emerald-400"
           href="/mobilizations"
+        />
+        <KpiCard
+          label="Contact Follow-ups"
+          value={String(contactFollowups.total)}
+          subtitle={`${contactFollowups.overdue} overdue · ${contactFollowups.today} today · ${contactFollowups.thisWeek} this wk`}
+          icon="phone"
+          color={contactFollowups.overdue > 0 ? 'text-red-400' : 'text-blue-400'}
+          href="/contacts"
         />
       </div>
 

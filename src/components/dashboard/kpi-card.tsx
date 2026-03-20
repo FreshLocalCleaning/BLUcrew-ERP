@@ -9,6 +9,7 @@ import {
   FileText,
   Users,
   Truck,
+  Phone,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -20,6 +21,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   file_text: FileText,
   users: Users,
   truck: Truck,
+  phone: Phone,
 }
 
 interface KpiCardProps {
