@@ -91,7 +91,18 @@ const columns = [
     header: 'Relationship',
     cell: (info) => {
       const val = info.getValue()
-      return val ? CLIENT_RELATIONSHIP_LABELS[val] : '—'
+      if (!val) return '—'
+      const colors: Record<string, string> = {
+        cold: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        developing: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
+        active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+        trusted: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+      }
+      return (
+        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colors[val] ?? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+          {CLIENT_RELATIONSHIP_LABELS[val]}
+        </span>
+      )
     },
   }),
   columnHelper.accessor('_primaryContact', {

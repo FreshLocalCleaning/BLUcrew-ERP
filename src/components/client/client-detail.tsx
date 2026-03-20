@@ -154,6 +154,13 @@ export function ClientDetail({
 
   const INPUT_CLS = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
 
+  const STRENGTH_COLORS: Record<string, { bg: string; text: string }> = {
+    cold: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-700 dark:text-slate-300' },
+    developing: { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300' },
+    active: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300' },
+    trusted: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
+  }
+
   const dueDate = client.next_action_date
     ? new Date(client.next_action_date).toLocaleDateString('en-US', {
         month: 'short',
@@ -322,11 +329,19 @@ export function ClientDetail({
                 </div>
                 <DetailItem icon={Building2} label="Vertical" value={client.vertical ? CLIENT_VERTICAL_LABELS[client.vertical] : '—'} />
                 <DetailItem icon={MapPin} label="Market" value={client.market ? CLIENT_MARKET_LABELS[client.market] : '—'} />
-                <DetailItem
-                  icon={Handshake}
-                  label="Relationship"
-                  value={client.relationship_strength ? CLIENT_RELATIONSHIP_LABELS[client.relationship_strength] : '—'}
-                />
+                <div className="flex items-start gap-3">
+                  <Handshake className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Relationship</p>
+                    {client.relationship_strength ? (
+                      <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', STRENGTH_COLORS[client.relationship_strength]?.bg ?? 'bg-slate-100 dark:bg-slate-800', STRENGTH_COLORS[client.relationship_strength]?.text ?? 'text-slate-700 dark:text-slate-300')}>
+                        {CLIENT_RELATIONSHIP_LABELS[client.relationship_strength]}
+                      </span>
+                    ) : (
+                      <p className="text-sm text-foreground">—</p>
+                    )}
+                  </div>
+                </div>
                 <DetailItem
                   icon={Clock}
                   label="Created"
