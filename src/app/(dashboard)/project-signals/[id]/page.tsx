@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import { getProjectSignal } from '@/lib/db/project-signals'
-import { getClient } from '@/lib/db/clients'
+import { getClient, listClients } from '@/lib/db/clients'
+import { listContacts } from '@/lib/db/contacts'
 import { getAuditLog } from '@/lib/db/json-db'
 import { SignalDetail } from '@/components/project-signal/signal-detail'
 import {
@@ -28,6 +29,8 @@ export default async function SignalDetailPage({ params }: SignalDetailPageProps
 
   const client = getClient(signal.linked_client_id)
   const auditLog = getAuditLog('project_signals', id)
+  const clients = listClients()
+  const contacts = listContacts()
 
   return (
     <div className="space-y-6">
@@ -57,7 +60,13 @@ export default async function SignalDetailPage({ params }: SignalDetailPageProps
       </div>
 
       {/* Detail component */}
-      <SignalDetail signal={signal} auditLog={auditLog} clientName={client?.name} />
+      <SignalDetail
+        signal={signal}
+        auditLog={auditLog}
+        clientName={client?.name}
+        clients={clients}
+        contacts={contacts}
+      />
     </div>
   )
 }

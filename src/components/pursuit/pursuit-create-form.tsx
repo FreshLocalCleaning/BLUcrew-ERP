@@ -25,16 +25,20 @@ interface PursuitCreateFormProps {
   contacts: Contact[]
   passedSignals: ProjectSignal[]
   preselectedClientId?: string
+  preselectedSignalId?: string
 }
 
-export function PursuitCreateForm({ clients, contacts, passedSignals, preselectedClientId }: PursuitCreateFormProps) {
+export function PursuitCreateForm({ clients, contacts, passedSignals, preselectedClientId, preselectedSignalId }: PursuitCreateFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
 
-  // Pre-select client if provided via URL param
-  const preClient = preselectedClientId ? clients.find(c => c.id === preselectedClientId) : undefined
-  const [selectedClientId, setSelectedClientId] = useState(preselectedClientId ?? '')
-  const [selectedSignalId, setSelectedSignalId] = useState('')
+  // Pre-select signal if provided via URL param
+  const preSignal = preselectedSignalId ? passedSignals.find(s => s.id === preselectedSignalId) : undefined
+  // Pre-select client from signal or URL param
+  const effectiveClientId = preSignal?.linked_client_id ?? preselectedClientId ?? ''
+  const preClient = effectiveClientId ? clients.find(c => c.id === effectiveClientId) : undefined
+  const [selectedClientId, setSelectedClientId] = useState(effectiveClientId)
+  const [selectedSignalId, setSelectedSignalId] = useState(preselectedSignalId ?? '')
 
   const {
     register,
@@ -44,10 +48,12 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
   } = useForm<CreatePursuitInput>({
     resolver: zodResolver(createPursuitSchema),
     defaultValues: {
-      linked_signal_id: '',
-      project_name: '',
-      client_id: preselectedClientId ?? '',
+      linked_signal_id: preselectedSignalId ?? '',
+      project_name: preSignal?.project_identity ?? '',
+      client_id: effectiveClientId,
       client_name: preClient?.name ?? '',
+      primary_contact_id: preSignal?.linked_contact_id ?? '',
+      primary_contact_name: preSignal?.linked_contact_name ?? '',
       notes: '',
     },
   })

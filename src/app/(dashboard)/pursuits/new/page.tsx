@@ -9,7 +9,7 @@ import { seedClients, seedContacts, seedProjectSignals } from '@/lib/db/seed'
 export default function NewPursuitPage({
   searchParams,
 }: {
-  searchParams: { clientId?: string }
+  searchParams: { clientId?: string; signalId?: string }
 }) {
   // Ensure seed data exists
   seedClients()
@@ -47,6 +47,7 @@ export default function NewPursuitPage({
         contacts={contacts}
         passedSignals={passedSignals}
         preselectedClientId={searchParams.clientId}
+        preselectedSignalId={searchParams.signalId}
       />
     </div>
   )
