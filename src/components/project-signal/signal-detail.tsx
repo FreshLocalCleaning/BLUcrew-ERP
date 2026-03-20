@@ -1,15 +1,27 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { PROJECT_SIGNAL_STATE_LABELS } from '@/lib/state-machines/project-signal'
+import { StatusChangeModal } from '@/components/shared/status-change-modal'
+import { PROJECT_SIGNAL_STATE_LABELS, projectSignalStateMachine } from '@/lib/state-machines/project-signal'
+import type { ProjectSignalState } from '@/lib/state-machines/project-signal'
+import { getAvailableTransitions } from '@/lib/state-machines/engine'
+import {
+  transitionProjectSignalAction,
+  updateProjectSignalAction,
+} from '@/actions/project-signal'
 import {
   PROJECT_SIGNAL_TYPE_LABELS,
   PROJECT_SIGNAL_GATE_LABELS,
+  PROJECT_SIGNAL_TYPES,
   type ProjectSignal,
+  type ProjectSignalType,
 } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
+import type { Role } from '@/lib/permissions/roles'
+import type { Client, Contact } from '@/types/commercial'
 import {
   FileText,
   Building2,
@@ -19,12 +31,22 @@ import {
   Shield,
   ArrowRight,
   CalendarClock,
+  ArrowLeftRight,
+  Pencil,
+  CheckCircle2,
+  XCircle,
+  PauseCircle,
+  Plus,
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface SignalDetailProps {
   signal: ProjectSignal
   auditLog: AuditEntry[]
   clientName?: string
+  clients: Client[]
+  contacts: Contact[]
 }
 
 function formatDate(iso?: string | null): string {
@@ -46,7 +68,165 @@ function formatTimestamp(iso: string): string {
   })
 }
 
-export function SignalDetail({ signal, auditLog, clientName }: SignalDetailProps) {
+export function SignalDetail({ signal: initialSignal, auditLog, clientName, clients, contacts }: SignalDetailProps) {
+  const router = useRouter()
+  const [signal, setSignal] = useState(initialSignal)
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deferModalOpen, setDeferModalOpen] = useState(false)
+  const [deferReason, setDeferReason] = useState('')
+  const [failModalOpen, setFailModalOpen] = useState(false)
+  const [failReason, setFailReason] = useState('')
+
+  // Edit form state
+  const [editProjectIdentity, setEditProjectIdentity] = useState(signal.project_identity)
+  const [editSignalType, setEditSignalType] = useState<ProjectSignalType>(signal.signal_type)
+  const [editSourceEvidence, setEditSourceEvidence] = useState(signal.source_evidence)
+  const [editTimingSignal, setEditTimingSignal] = useState(signal.timing_signal ?? '')
+  const [editFitRiskNote, setEditFitRiskNote] = useState(signal.fit_risk_note ?? '')
+  const [editClientId, setEditClientId] = useState(signal.linked_client_id)
+  const [editContactId, setEditContactId] = useState(signal.linked_contact_id ?? '')
+
+  const actorRoles: Role[] = ['leadership_system_admin', 'commercial_bd']
+
+  const availableTransitions = getAvailableTransitions(
+    projectSignalStateMachine,
+    signal.status,
+    actorRoles,
+  )
+
+  const canPassGate = signal.status === 'under_review' &&
+    signal.linked_client_id &&
+    signal.linked_contact_id &&
+    signal.project_identity &&
+    signal.signal_type &&
+    signal.source_evidence
+
+  const canDefer = signal.status === 'under_review'
+  const canFail = signal.status === 'under_review'
+  const showCreatePursuit = signal.status === 'passed' && signal.gate_outcome === 'passed' && !signal.created_pursuit_id
+
+  const filteredContacts = contacts.filter((c) => c.client_id === editClientId)
+
+  // --- Handlers ---
+
+  async function handleStatusChange(targetState: string, reason: string) {
+    const result = await transitionProjectSignalAction({
+      signal_id: signal.id,
+      target_state: targetState,
+      reason: reason || undefined,
+      approval_granted: true,
+    })
+    setStatusModalOpen(false)
+    if (result.success && result.data) {
+      setSignal(result.data)
+      toast.success(`Status changed to ${PROJECT_SIGNAL_STATE_LABELS[targetState as ProjectSignalState] ?? targetState}`)
+      router.refresh()
+    } else {
+      toast.error(result.error ?? 'Failed to change status')
+    }
+  }
+
+  async function handlePassGate() {
+    const result = await transitionProjectSignalAction({
+      signal_id: signal.id,
+      target_state: 'passed',
+      approval_granted: true,
+    })
+    if (result.success && result.data) {
+      setSignal(result.data)
+      toast.success('Gate passed — Pursuit creation enabled')
+      router.refresh()
+    } else {
+      toast.error(result.error ?? 'Failed to pass gate')
+    }
+  }
+
+  async function handleDefer() {
+    if (!deferReason.trim()) return
+    const result = await transitionProjectSignalAction({
+      signal_id: signal.id,
+      target_state: 'deferred',
+      reason: deferReason,
+      approval_granted: true,
+    })
+    setDeferModalOpen(false)
+    setDeferReason('')
+    if (result.success && result.data) {
+      setSignal(result.data)
+      toast.success('Signal deferred')
+      router.refresh()
+    } else {
+      toast.error(result.error ?? 'Failed to defer signal')
+    }
+  }
+
+  async function handleFail() {
+    if (!failReason.trim()) return
+    const result = await transitionProjectSignalAction({
+      signal_id: signal.id,
+      target_state: 'failed',
+      reason: failReason,
+      approval_granted: true,
+    })
+    setFailModalOpen(false)
+    setFailReason('')
+    if (result.success && result.data) {
+      setSignal(result.data)
+      toast.success('Signal failed')
+      router.refresh()
+    } else {
+      toast.error(result.error ?? 'Failed to update signal')
+    }
+  }
+
+  function startEditing() {
+    setEditProjectIdentity(signal.project_identity)
+    setEditSignalType(signal.signal_type)
+    setEditSourceEvidence(signal.source_evidence)
+    setEditTimingSignal(signal.timing_signal ?? '')
+    setEditFitRiskNote(signal.fit_risk_note ?? '')
+    setEditClientId(signal.linked_client_id)
+    setEditContactId(signal.linked_contact_id ?? '')
+    setEditing(true)
+  }
+
+  async function handleSaveEdit() {
+    setSaving(true)
+    const selectedClient = clients.find((c) => c.id === editClientId)
+    const selectedContact = contacts.find((c) => c.id === editContactId)
+
+    const result = await updateProjectSignalAction({
+      id: signal.id,
+      project_identity: editProjectIdentity,
+      signal_type: editSignalType,
+      source_evidence: editSourceEvidence,
+      timing_signal: editTimingSignal || null,
+      fit_risk_note: editFitRiskNote || null,
+      linked_client_id: editClientId,
+      linked_contact_id: editContactId || undefined,
+    })
+    setSaving(false)
+
+    if (result.success && result.data) {
+      // Update local state with denormalized names
+      const updated = {
+        ...result.data,
+        linked_client_name: selectedClient?.name ?? result.data.linked_client_name,
+        linked_contact_name: selectedContact
+          ? `${selectedContact.first_name} ${selectedContact.last_name}`
+          : result.data.linked_contact_name,
+      }
+      setSignal(updated)
+      setEditing(false)
+      toast.success('Signal updated')
+      router.refresh()
+    } else {
+      toast.error(result.error ?? 'Failed to save changes')
+    }
+  }
+
   return (
     <div className="flex gap-6">
       {/* Main content */}
@@ -71,47 +251,173 @@ export function SignalDetail({ signal, auditLog, clientName }: SignalDetailProps
 
         {/* Signal Details Card */}
         <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Signal Details</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <DetailItem icon={FileText} label="Reference ID" value={signal.reference_id} mono />
-            <DetailItem icon={Zap} label="Signal Type" value={PROJECT_SIGNAL_TYPE_LABELS[signal.signal_type]} />
-            <DetailItem
-              icon={Building2}
-              label="Client"
-              value={signal.linked_client_name}
-              href={`/clients/${signal.linked_client_id}`}
-            />
-            {signal.linked_contact_name && (
-              <DetailItem
-                icon={User}
-                label="Contact"
-                value={signal.linked_contact_name}
-                href={signal.linked_contact_id ? `/contacts/${signal.linked_contact_id}` : undefined}
-              />
-            )}
-            {signal.timing_signal && (
-              <DetailItem icon={CalendarClock} label="Timing Signal" value={signal.timing_signal} />
-            )}
-            {signal.fit_risk_note && (
-              <DetailItem icon={Shield} label="Fit/Risk Note" value={signal.fit_risk_note} />
-            )}
-            <DetailItem icon={Clock} label="Created" value={formatDate(signal.created_at)} />
-            {signal.gate_decision_date && (
-              <DetailItem icon={Clock} label="Gate Decision Date" value={formatDate(signal.gate_decision_date)} />
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Signal Details</h2>
+            {editing && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditing(false)}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
             )}
           </div>
 
-          {signal.source_evidence && (
-            <div className="mt-4 border-t border-border pt-4">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Source Evidence</p>
-              <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{signal.source_evidence}</p>
+          {editing ? (
+            /* --- Edit Mode --- */
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+                  Project Identity
+                </label>
+                <input
+                  type="text"
+                  value={editProjectIdentity}
+                  onChange={(e) => setEditProjectIdentity(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+                  Signal Type
+                </label>
+                <select
+                  value={editSignalType}
+                  onChange={(e) => setEditSignalType(e.target.value as ProjectSignalType)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {PROJECT_SIGNAL_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {PROJECT_SIGNAL_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+                  Source Evidence
+                </label>
+                <textarea
+                  value={editSourceEvidence}
+                  onChange={(e) => setEditSourceEvidence(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+                  Timing Signal
+                </label>
+                <input
+                  type="text"
+                  value={editTimingSignal}
+                  onChange={(e) => setEditTimingSignal(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+                  Fit / Risk Note
+                </label>
+                <textarea
+                  value={editFitRiskNote}
+                  onChange={(e) => setEditFitRiskNote(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+                  Client
+                </label>
+                <select
+                  value={editClientId}
+                  onChange={(e) => {
+                    setEditClientId(e.target.value)
+                    setEditContactId('')
+                  }}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Select client…</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">
+                  Contact
+                </label>
+                <select
+                  value={editContactId}
+                  onChange={(e) => setEditContactId(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Select contact…</option>
+                  {filteredContacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.first_name} {c.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          )}
-          {signal.notes && (
-            <div className="mt-4 border-t border-border pt-4">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Notes</p>
-              <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{signal.notes}</p>
-            </div>
+          ) : (
+            /* --- Read Mode --- */
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <DetailItem icon={FileText} label="Reference ID" value={signal.reference_id} mono />
+                <DetailItem icon={Zap} label="Signal Type" value={PROJECT_SIGNAL_TYPE_LABELS[signal.signal_type]} />
+                <DetailItem
+                  icon={Building2}
+                  label="Client"
+                  value={signal.linked_client_name}
+                  href={`/clients/${signal.linked_client_id}`}
+                />
+                {signal.linked_contact_name && (
+                  <DetailItem
+                    icon={User}
+                    label="Contact"
+                    value={signal.linked_contact_name}
+                    href={signal.linked_contact_id ? `/contacts/${signal.linked_contact_id}` : undefined}
+                  />
+                )}
+                {signal.timing_signal && (
+                  <DetailItem icon={CalendarClock} label="Timing Signal" value={signal.timing_signal} />
+                )}
+                {signal.fit_risk_note && (
+                  <DetailItem icon={Shield} label="Fit/Risk Note" value={signal.fit_risk_note} />
+                )}
+                <DetailItem icon={Clock} label="Created" value={formatDate(signal.created_at)} />
+                {signal.gate_decision_date && (
+                  <DetailItem icon={Clock} label="Gate Decision Date" value={formatDate(signal.gate_decision_date)} />
+                )}
+              </div>
+
+              {signal.source_evidence && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Source Evidence</p>
+                  <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{signal.source_evidence}</p>
+                </div>
+              )}
+              {signal.notes && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Notes</p>
+                  <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{signal.notes}</p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -169,23 +475,188 @@ export function SignalDetail({ signal, auditLog, clientName }: SignalDetailProps
       </div>
 
       {/* Right Sidebar */}
-      <div className="hidden w-64 shrink-0 space-y-3 lg:block">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Quick Info
-        </h3>
-        <div className="rounded-lg border border-border bg-card p-3">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Status</p>
-          <StatusBadge state={signal.status} label={PROJECT_SIGNAL_STATE_LABELS[signal.status]} />
+      <div className="hidden w-72 shrink-0 space-y-4 lg:block">
+        {/* Quick Info */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Quick Info
+          </h3>
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Status</p>
+            <StatusBadge state={signal.status} label={PROJECT_SIGNAL_STATE_LABELS[signal.status]} />
+          </div>
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Gate</p>
+            <StatusBadge state={signal.gate_outcome} label={PROJECT_SIGNAL_GATE_LABELS[signal.gate_outcome]} />
+          </div>
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Created</p>
+            <p className="text-sm text-foreground">{formatDate(signal.created_at)}</p>
+          </div>
         </div>
-        <div className="rounded-lg border border-border bg-card p-3">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Gate</p>
-          <StatusBadge state={signal.gate_outcome} label={PROJECT_SIGNAL_GATE_LABELS[signal.gate_outcome]} />
-        </div>
-        <div className="rounded-lg border border-border bg-card p-3">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Created</p>
-          <p className="text-sm text-foreground">{formatDate(signal.created_at)}</p>
+
+        {/* Actions */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Actions
+          </h3>
+
+          {/* Pass Gate — prominent green button */}
+          {canPassGate && (
+            <button
+              onClick={handlePassGate}
+              className="flex w-full items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Pass Gate
+            </button>
+          )}
+
+          {/* Create Pursuit — shown after gate passed */}
+          {showCreatePursuit && (
+            <Link
+              href={`/pursuits/new?signalId=${signal.id}`}
+              className="flex w-full items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700"
+            >
+              <Plus className="h-4 w-4" />
+              Create Pursuit
+            </Link>
+          )}
+
+          {/* Defer — yellow */}
+          {canDefer && (
+            <button
+              onClick={() => setDeferModalOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg bg-yellow-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-yellow-600"
+            >
+              <PauseCircle className="h-4 w-4" />
+              Defer
+            </button>
+          )}
+
+          {/* Fail — red */}
+          {canFail && (
+            <button
+              onClick={() => setFailModalOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700"
+            >
+              <XCircle className="h-4 w-4" />
+              Fail
+            </button>
+          )}
+
+          {/* Change Status — opens modal with all available transitions */}
+          {availableTransitions.length > 0 && (
+            <button
+              onClick={() => setStatusModalOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Change Status
+            </button>
+          )}
+
+          {/* Edit — toggles edit mode */}
+          {!editing && (
+            <button
+              onClick={startEditing}
+              className="flex w-full items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Status Change Modal */}
+      <StatusChangeModal
+        isOpen={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        currentState={signal.status}
+        currentStateLabel={PROJECT_SIGNAL_STATE_LABELS[signal.status]}
+        availableTransitions={availableTransitions}
+        stateLabels={PROJECT_SIGNAL_STATE_LABELS}
+        onConfirm={handleStatusChange}
+      />
+
+      {/* Defer Modal */}
+      {deferModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Defer Signal</h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Provide a reason for deferring this signal.
+            </p>
+            <textarea
+              value={deferReason}
+              onChange={(e) => setDeferReason(e.target.value)}
+              placeholder="Reason for deferral…"
+              rows={3}
+              className="mb-4 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setDeferModalOpen(false); setDeferReason('') }}
+                className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDefer}
+                disabled={!deferReason.trim()}
+                className={cn(
+                  'rounded-md px-4 py-2 text-sm font-medium',
+                  deferReason.trim()
+                    ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                    : 'cursor-not-allowed bg-muted text-muted-foreground',
+                )}
+              >
+                Confirm Defer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fail Modal */}
+      {failModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Fail Signal</h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Provide a reason for failing this signal.
+            </p>
+            <textarea
+              value={failReason}
+              onChange={(e) => setFailReason(e.target.value)}
+              placeholder="Reason for failure…"
+              rows={3}
+              className="mb-4 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setFailModalOpen(false); setFailReason('') }}
+                className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFail}
+                disabled={!failReason.trim()}
+                className={cn(
+                  'rounded-md px-4 py-2 text-sm font-medium',
+                  failReason.trim()
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'cursor-not-allowed bg-muted text-muted-foreground',
+                )}
+              >
+                Confirm Fail
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -85,6 +85,8 @@ export interface DatabaseSchema {
   change_orders: Record<string, BaseEntity & Record<string, unknown>>
   expansion_tasks: Record<string, BaseEntity & Record<string, unknown>>
   equipment_templates: Record<string, BaseEntity & Record<string, unknown>>
+  site_walks: Record<string, BaseEntity & Record<string, unknown>>
+  closeout_plans: Record<string, BaseEntity & Record<string, unknown>>
   integration_events: IntegrationEvent[]
   audit_log: AuditEntry[]
 }
@@ -119,6 +121,8 @@ function emptyDb(): DatabaseSchema {
     change_orders: {},
     expansion_tasks: {},
     equipment_templates: {},
+    site_walks: {},
+    closeout_plans: {},
     integration_events: [],
     audit_log: [],
   }
