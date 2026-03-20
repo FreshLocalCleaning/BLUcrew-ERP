@@ -19,6 +19,17 @@ import {
   seedEquipmentTemplates,
 } from '@/lib/db/seed'
 
+const CREW_NAME_MAP: Record<string, string> = {
+  'marcus-johnson': 'Marcus Johnson',
+  'tech-001': 'David Rivera',
+  'tech-002': 'Sarah Kim',
+  'tech-003': 'James Thompson',
+  'tech-004': 'Maria Garcia',
+  'tech-005': 'Robert Chen',
+  'cullen': 'Cullen',
+  'antonio': 'Antonio',
+}
+
 interface MobilizationDetailPageProps {
   params: Promise<{ id: string }>
 }
@@ -68,7 +79,7 @@ export default async function MobilizationDetailPage({ params }: MobilizationDet
           {mobilization.reference_id}
           {' '}
           {mobilization.crew_lead_id && (
-            <span className="text-xs text-muted-foreground">(Lead: {mobilization.crew_lead_id})</span>
+            <span className="text-xs text-muted-foreground">(Lead: {CREW_NAME_MAP[mobilization.crew_lead_id] ?? mobilization.crew_lead_id})</span>
           )}
         </p>
       </div>

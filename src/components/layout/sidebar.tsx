@@ -19,7 +19,6 @@ import {
   BarChart3,
   Settings,
   Zap,
-  Package,
 } from 'lucide-react'
 
 interface NavItem {
@@ -76,7 +75,6 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Approvals', href: '/approvals', icon: CheckSquare },
       { label: 'Reports', href: '/reports', icon: BarChart3 },
       { label: 'Admin', href: '/admin', icon: Settings },
-      { label: 'Equipment Templates', href: '/admin/equipment-templates', icon: Package },
     ],
   },
 ]
