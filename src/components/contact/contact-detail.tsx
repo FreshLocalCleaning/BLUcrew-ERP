@@ -13,9 +13,11 @@ import {
   CONTACT_LAYERS,
   CONTACT_INFLUENCE_LEVELS,
   CONTACT_RELATIONSHIP_STRENGTHS,
+  CONTACT_SOURCE_CHANNELS,
   type Contact,
   type ContactInfluence,
   type ContactRelationshipStrength,
+  type ContactSourceChannel,
 } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import {
@@ -135,10 +137,16 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
   const [submittingTouch, setSubmittingTouch] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState({
+    first_name: contact.first_name,
+    last_name: contact.last_name,
     title: contact.title ?? '',
     email: contact.email ?? '',
     phone: contact.phone ?? '',
+    linkedin_url: contact.linkedin_url ?? '',
     role_type: contact.role_type ?? '',
+    influence: contact.influence,
+    relationship_strength: contact.relationship_strength,
+    source_channel: contact.source_channel ?? '',
     notes: contact.notes ?? '',
     owner_name: contact.owner_name ?? '',
     is_champion: contact.is_champion,
@@ -176,10 +184,15 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
   async function handleSaveEdit() {
     setSavingEdit(true)
     try {
-      const result = await updateContactAction({
+      const payload: Record<string, unknown> = {
         contact_id: contact.id,
         ...editData,
-      })
+      }
+      // Only send source_channel if a value is selected
+      if (!editData.source_channel) {
+        delete payload.source_channel
+      }
+      const result = await updateContactAction(payload)
       if (result.success && result.data) {
         setContact(result.data)
         toast.success('Contact updated')
@@ -245,28 +258,27 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
 
         {/* Contact Info Card */}
         <div className="rounded-lg border border-border bg-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Contact Information</h2>
-            {editing && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setEditing(false)}
-                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" /> Cancel
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={savingEdit}
-                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                >
-                  <Save className="h-3.5 w-3.5" /> {savingEdit ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            )}
-          </div>
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Contact Information</h2>
           {editing ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">First Name</label>
+                <input
+                  value={editData.first_name}
+                  onChange={(e) => setEditData(prev => ({ ...prev, first_name: e.target.value }))}
+                  className={inputClass}
+                  placeholder="First name"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Last Name</label>
+                <input
+                  value={editData.last_name}
+                  onChange={(e) => setEditData(prev => ({ ...prev, last_name: e.target.value }))}
+                  className={inputClass}
+                  placeholder="Last name"
+                />
+              </div>
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Title</label>
                 <input
@@ -297,64 +309,13 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Role Type</label>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">LinkedIn URL</label>
                 <input
-                  value={editData.role_type}
-                  onChange={(e) => {
-                    const newRoleType = e.target.value
-                    setEditData(prev => ({ ...prev, role_type: newRoleType }))
-                  }}
+                  type="url"
+                  value={editData.linkedin_url}
+                  onChange={(e) => setEditData(prev => ({ ...prev, linkedin_url: e.target.value }))}
                   className={inputClass}
-                  placeholder="e.g. Senior PM"
-                />
-                {editData.role_type && roleToLayer(editData.role_type) && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Auto-mapped layer: {CONTACT_LAYER_LABELS[roleToLayer(editData.role_type)!]}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">BLU Crew Owner</label>
-                <input
-                  value={editData.owner_name}
-                  onChange={(e) => setEditData(prev => ({ ...prev, owner_name: e.target.value }))}
-                  className={inputClass}
-                  placeholder="e.g. Antonio, Cullen"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editData.is_champion}
-                      onChange={(e) => setEditData(prev => ({ ...prev, is_champion: e.target.checked }))}
-                      className="h-4 w-4 rounded border-input bg-background text-primary focus:ring-ring"
-                    />
-                    <span className="text-sm font-medium text-foreground">BLU Champion</span>
-                  </label>
-                </div>
-                {editData.is_champion && (
-                  <div className="mt-2">
-                    <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Champion Evidence</label>
-                    <textarea
-                      value={editData.champion_reason}
-                      onChange={(e) => setEditData(prev => ({ ...prev, champion_reason: e.target.value }))}
-                      className={inputClass}
-                      rows={2}
-                      placeholder="Why is this person a champion for BLU Crew?"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Notes</label>
-                <textarea
-                  value={editData.notes}
-                  onChange={(e) => setEditData(prev => ({ ...prev, notes: e.target.value }))}
-                  className={inputClass}
-                  rows={3}
-                  placeholder="General notes..."
+                  placeholder="https://linkedin.com/in/..."
                 />
               </div>
             </div>
@@ -393,34 +354,112 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
         {/* Classification Card */}
         <div className="rounded-lg border border-border bg-card p-6">
           <h2 className="mb-4 text-lg font-semibold text-foreground">Classification</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <DetailItem icon={Layers} label="Layer" value={CONTACT_LAYER_LABELS[contact.layer]} />
-            {contact.role_type && (
-              <DetailItem icon={User} label="Role Type" value={contact.role_type} />
-            )}
-            <div className="flex items-start gap-3">
-              <Target className="mt-0.5 h-4 w-4 text-muted-foreground" />
+          {editing ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Influence</p>
-                <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', influenceStyle.bg, influenceStyle.text)}>
-                  {CONTACT_INFLUENCE_LABELS[contact.influence]}
-                </span>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Role Type</label>
+                <input
+                  value={editData.role_type}
+                  onChange={(e) => {
+                    const newRoleType = e.target.value
+                    setEditData(prev => ({ ...prev, role_type: newRoleType }))
+                  }}
+                  className={inputClass}
+                  placeholder="e.g. Senior PM"
+                />
+                {editData.role_type && roleToLayer(editData.role_type) && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Auto-mapped layer: {CONTACT_LAYER_LABELS[roleToLayer(editData.role_type)!]}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Influence Level</label>
+                <select
+                  value={editData.influence}
+                  onChange={(e) => setEditData(prev => ({ ...prev, influence: e.target.value as ContactInfluence }))}
+                  className={inputClass}
+                >
+                  {CONTACT_INFLUENCE_LEVELS.map((level) => (
+                    <option key={level} value={level}>{CONTACT_INFLUENCE_LABELS[level]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Relationship Strength</label>
+                <select
+                  value={editData.relationship_strength}
+                  onChange={(e) => setEditData(prev => ({ ...prev, relationship_strength: e.target.value as ContactRelationshipStrength }))}
+                  className={inputClass}
+                >
+                  {CONTACT_RELATIONSHIP_STRENGTHS.map((strength) => (
+                    <option key={strength} value={strength}>{CONTACT_RELATIONSHIP_LABELS[strength]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Source Channel</label>
+                <select
+                  value={editData.source_channel}
+                  onChange={(e) => setEditData(prev => ({ ...prev, source_channel: e.target.value as ContactSourceChannel }))}
+                  className={inputClass}
+                >
+                  <option value="">Select...</option>
+                  {CONTACT_SOURCE_CHANNELS.map((channel) => (
+                    <option key={channel} value={channel}>{CONTACT_SOURCE_LABELS[channel]}</option>
+                  ))}
+                </select>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <Handshake className="mt-0.5 h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Relationship Strength</p>
-                <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', strengthStyle.bg, strengthStyle.text)}>
-                  {CONTACT_RELATIONSHIP_LABELS[contact.relationship_strength]}
-                </span>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <DetailItem icon={Layers} label="Layer" value={CONTACT_LAYER_LABELS[contact.layer]} />
+              {contact.role_type && (
+                <DetailItem icon={User} label="Role Type" value={contact.role_type} />
+              )}
+              <div className="flex items-start gap-3">
+                <Target className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Influence</p>
+                  <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', influenceStyle.bg, influenceStyle.text)}>
+                    {CONTACT_INFLUENCE_LABELS[contact.influence]}
+                  </span>
+                </div>
               </div>
+              <div className="flex items-start gap-3">
+                <Handshake className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Relationship Strength</p>
+                  <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', strengthStyle.bg, strengthStyle.text)}>
+                    {CONTACT_RELATIONSHIP_LABELS[contact.relationship_strength]}
+                  </span>
+                </div>
+              </div>
+              {contact.source_channel && (
+                <DetailItem icon={Zap} label="Source Channel" value={CONTACT_SOURCE_LABELS[contact.source_channel]} />
+              )}
             </div>
-            {contact.source_channel && (
-              <DetailItem icon={Zap} label="Source Channel" value={CONTACT_SOURCE_LABELS[contact.source_channel]} />
-            )}
-          </div>
+          )}
         </div>
+
+        {/* Save All / Cancel bar when editing */}
+        {editing && (
+          <div className="flex items-center justify-end gap-3 rounded-lg border border-border bg-card p-4">
+            <button
+              onClick={() => setEditing(false)}
+              className="flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" /> Cancel
+            </button>
+            <button
+              onClick={handleSaveEdit}
+              disabled={savingEdit}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" /> {savingEdit ? 'Saving...' : 'Save All Changes'}
+            </button>
+          </div>
+        )}
 
         {/* Touch Log */}
         <div className="rounded-lg border border-border bg-card p-6">
@@ -528,22 +567,37 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
         </h3>
         <button
           onClick={() => {
-            setEditing(true)
-            setEditData({
-              title: contact.title ?? '',
-              email: contact.email ?? '',
-              phone: contact.phone ?? '',
-              role_type: contact.role_type ?? '',
-              notes: contact.notes ?? '',
-              owner_name: contact.owner_name ?? '',
-              is_champion: contact.is_champion,
-              champion_reason: contact.champion_reason ?? '',
-            })
+            if (editing) {
+              setEditing(false)
+            } else {
+              setEditData({
+                first_name: contact.first_name,
+                last_name: contact.last_name,
+                title: contact.title ?? '',
+                email: contact.email ?? '',
+                phone: contact.phone ?? '',
+                linkedin_url: contact.linkedin_url ?? '',
+                role_type: contact.role_type ?? '',
+                influence: contact.influence,
+                relationship_strength: contact.relationship_strength,
+                source_channel: contact.source_channel ?? '',
+                notes: contact.notes ?? '',
+                owner_name: contact.owner_name ?? '',
+                is_champion: contact.is_champion,
+                champion_reason: contact.champion_reason ?? '',
+              })
+              setEditing(true)
+            }
           }}
-          className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/50',
+            editing
+              ? 'border-primary text-primary'
+              : 'border-border text-foreground',
+          )}
         >
-          <Pencil className="h-4 w-4 text-muted-foreground" />
-          Edit
+          <Pencil className={cn('h-4 w-4', editing ? 'text-primary' : 'text-muted-foreground')} />
+          {editing ? 'Editing...' : 'Edit'}
         </button>
         <button
           onClick={() => setTouchModalOpen(true)}
