@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Star } from 'lucide-react'
 import { getContact } from '@/lib/db/contacts'
 import { getAuditLog } from '@/lib/db/json-db'
 import { ContactDetail } from '@/components/contact/contact-detail'
@@ -42,9 +42,17 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
 
       {/* Page heading */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {contact.first_name} {contact.last_name}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground">
+            {contact.first_name} {contact.last_name}
+          </h1>
+          {contact.is_champion && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-900/30 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+              BLU Champion
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
           <span className="font-mono">{contact.reference_id}</span>
           {contact.title && (

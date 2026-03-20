@@ -322,19 +322,6 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
     <div className="flex gap-6">
       {/* Main content */}
       <div className="flex-1 space-y-6">
-        {/* BLU Champion Banner */}
-        {contact.is_champion && (
-          <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20">
-            <Star className="h-5 w-5 shrink-0 fill-amber-400 text-amber-400" />
-            <div>
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">BLU Champion</p>
-              {contact.champion_reason && (
-                <p className="text-sm text-amber-700 dark:text-amber-300">{contact.champion_reason}</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Contact Info Card */}
         <div className="rounded-lg border border-border bg-card p-6">
           <h2 className="mb-4 text-lg font-semibold text-foreground">Contact Information</h2>
