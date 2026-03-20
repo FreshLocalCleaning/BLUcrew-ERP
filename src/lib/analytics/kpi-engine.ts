@@ -277,9 +277,12 @@ export function pipelineValueByStage(): PipelineStage[] {
 // Action Items (replaces alerts — comprehensive task queue)
 // ---------------------------------------------------------------------------
 
+export type ActionCategory = 'contact_followups' | 'pipeline' | 'commercial' | 'operations' | 'growth'
+
 export interface ActionItem {
   type: string
   priority: number // lower = more urgent
+  category: ActionCategory
   entity_type: string
   entity_id: string
   ref_id: string
@@ -288,6 +291,9 @@ export interface ActionItem {
   days_overdue?: number
   days_until?: number
   href: string
+  /** Extra context for contact follow-ups */
+  contact_owner?: string
+  client_name?: string
 }
 
 const ENTITY_ROUTES: Record<string, string> = {
@@ -308,6 +314,52 @@ function entityHref(col: string, id: string): string {
   return `${ENTITY_ROUTES[col] ?? ''}/${id}`
 }
 
+const CATEGORY_MAP: Record<string, ActionCategory> = {
+  contacts: 'contact_followups',
+  clients: 'pipeline',
+  project_signals: 'pipeline',
+  pursuits: 'pipeline',
+  estimates: 'commercial',
+  proposals: 'commercial',
+  award_handoffs: 'commercial',
+  projects: 'operations',
+  mobilizations: 'operations',
+  change_orders: 'operations',
+  expansion_tasks: 'growth',
+}
+
+/** Resolve a human-readable display name for an entity record */
+function resolveEntityName(col: string, e: Record<string, unknown>): string {
+  switch (col) {
+    case 'clients':
+      return String(e['name'] ?? e['reference_id'] ?? '')
+    case 'contacts': {
+      const full = `${e['first_name'] ?? ''} ${e['last_name'] ?? ''}`.trim()
+      return e['client_name'] ? `${full} — ${e['client_name']}` : full
+    }
+    case 'pursuits':
+    case 'estimates':
+    case 'proposals':
+    case 'award_handoffs':
+    case 'projects':
+      return String(e['project_name'] ?? e['reference_id'] ?? '')
+    case 'project_signals':
+      return String(e['project_identity'] ?? e['reference_id'] ?? '')
+    case 'mobilizations':
+      return String(e['stage_name'] ?? e['reference_id'] ?? '')
+    case 'change_orders': {
+      const scope = String(e['scope_delta'] ?? '')
+      return scope.length > 50 ? scope.slice(0, 50) + '...' : scope || String(e['reference_id'] ?? '')
+    }
+    case 'expansion_tasks': {
+      const obj = String(e['growth_objective'] ?? '')
+      return obj.length > 50 ? obj.slice(0, 50) + '...' : obj || String(e['reference_id'] ?? '')
+    }
+    default:
+      return String(e['name'] ?? e['reference_id'] ?? '')
+  }
+}
+
 /** Build comprehensive action items list sorted by urgency */
 export function actionItems(): ActionItem[] {
   const items: ActionItem[] = []
@@ -321,18 +373,21 @@ export function actionItems(): ActionItem[] {
   const collections: db.EntityCollectionName[] = [
     'clients', 'contacts', 'pursuits', 'estimates', 'proposals',
     'award_handoffs', 'projects', 'mobilizations', 'change_orders',
+    'expansion_tasks',
   ]
   for (const col of collections) {
     const entities = db.list<db.BaseEntity & Record<string, unknown>>(col)
     for (const e of entities) {
-      const refId = String(e['reference_id'] ?? e['name'] ?? e.id.slice(0, 8))
-      const name = String(e['name'] ?? e['project_name'] ?? e['stage_name'] ?? refId)
+      const refId = String(e['reference_id'] ?? e.id.slice(0, 8))
+      const name = resolveEntityName(col, e)
+      const category = CATEGORY_MAP[col] ?? 'pipeline'
       if (e.next_action_date) {
         if (e.next_action_date < today) {
           const overdue = daysBetween(e.next_action_date, today)
           items.push({
             type: 'overdue',
             priority: 10 - Math.min(overdue, 10),
+            category,
             entity_type: col,
             entity_id: e.id,
             ref_id: refId,
@@ -340,12 +395,14 @@ export function actionItems(): ActionItem[] {
             message: e.next_action ?? 'No action specified',
             days_overdue: overdue,
             href: entityHref(col, e.id),
+            ...(col === 'contacts' ? { contact_owner: String(e['owner_name'] ?? ''), client_name: String(e['client_name'] ?? '') } : {}),
           })
         } else if (e.next_action_date <= sevenDays!) {
           const daysUntil = daysBetween(today, e.next_action_date)
           items.push({
             type: 'upcoming',
             priority: 30 + daysUntil,
+            category,
             entity_type: col,
             entity_id: e.id,
             ref_id: refId,
@@ -353,9 +410,52 @@ export function actionItems(): ActionItem[] {
             message: e.next_action ?? 'Action due',
             days_until: daysUntil,
             href: entityHref(col, e.id),
+            ...(col === 'contacts' ? { contact_owner: String(e['owner_name'] ?? ''), client_name: String(e['client_name'] ?? '') } : {}),
           })
         }
       }
+    }
+  }
+
+  // --- Contact follow-ups from touch log (next_step_due_date) ---
+  const contacts = db.list<Contact>('contacts')
+  for (const c of contacts) {
+    if (!c.next_step_due_date) continue
+    // Skip if already captured via next_action_date
+    if (c.next_action_date === c.next_step_due_date) continue
+    const contactName = `${c.first_name} ${c.last_name}` + (c.client_name ? ` — ${c.client_name}` : '')
+    if (c.next_step_due_date < today) {
+      const overdue = daysBetween(c.next_step_due_date, today)
+      items.push({
+        type: 'overdue',
+        priority: 10 - Math.min(overdue, 10),
+        category: 'contact_followups',
+        entity_type: 'contacts',
+        entity_id: c.id,
+        ref_id: c.reference_id,
+        name: contactName,
+        message: c.next_step ?? 'Follow-up due',
+        days_overdue: overdue,
+        href: `/contacts/${c.id}`,
+        contact_owner: c.owner_name ?? '',
+        client_name: c.client_name,
+      })
+    } else if (c.next_step_due_date <= sevenDays!) {
+      const daysUntil = daysBetween(today, c.next_step_due_date)
+      items.push({
+        type: 'upcoming',
+        priority: 30 + daysUntil,
+        category: 'contact_followups',
+        entity_type: 'contacts',
+        entity_id: c.id,
+        ref_id: c.reference_id,
+        name: contactName,
+        message: c.next_step ?? 'Follow-up due',
+        days_until: daysUntil,
+        href: `/contacts/${c.id}`,
+        contact_owner: c.owner_name ?? '',
+        client_name: c.client_name,
+      })
     }
   }
 
@@ -366,6 +466,7 @@ export function actionItems(): ActionItem[] {
       items.push({
         type: 'stalled_pursuit',
         priority: 20,
+        category: 'pipeline',
         entity_type: 'pursuits',
         entity_id: p.id,
         ref_id: p.reference_id,
@@ -383,6 +484,7 @@ export function actionItems(): ActionItem[] {
       items.push({
         type: 'estimate_qa',
         priority: 22,
+        category: 'commercial',
         entity_type: 'estimates',
         entity_id: e.id,
         ref_id: e.reference_id,
@@ -400,10 +502,11 @@ export function actionItems(): ActionItem[] {
       items.push({
         type: 'co_needs_pricing',
         priority: 18,
+        category: 'operations',
         entity_type: 'change_orders',
         entity_id: co.id,
         ref_id: co.reference_id,
-        name: co.scope_delta.length > 50 ? co.scope_delta.slice(0, 50) + '…' : co.scope_delta,
+        name: co.scope_delta.length > 50 ? co.scope_delta.slice(0, 50) + '...' : co.scope_delta,
         message: 'Needs pricing from Estimating',
         href: `/change-orders/${co.id}`,
       })
@@ -417,10 +520,11 @@ export function actionItems(): ActionItem[] {
       items.push({
         type: 'proposal_stale',
         priority: 25,
+        category: 'commercial',
         entity_type: 'proposals',
         entity_id: p.id,
         ref_id: p.reference_id,
-        name: p.linked_pursuit_id ?? p.reference_id,
+        name: p.project_name ?? p.reference_id,
         message: `Awaiting decision for ${daysBetween(p.delivery_date ?? p.created_at, new Date().toISOString())}d`,
         href: `/proposals/${p.id}`,
       })
@@ -434,6 +538,7 @@ export function actionItems(): ActionItem[] {
       items.push({
         type: 'awaiting_pm_claim',
         priority: 15,
+        category: 'commercial',
         entity_type: 'award_handoffs',
         entity_id: a.id,
         ref_id: a.reference_id,
@@ -451,6 +556,7 @@ export function actionItems(): ActionItem[] {
       items.push({
         type: 'blocked_mob',
         priority: 12,
+        category: 'operations',
         entity_type: 'mobilizations',
         entity_id: m.id,
         ref_id: m.reference_id,
@@ -468,6 +574,7 @@ export function actionItems(): ActionItem[] {
       items.push({
         type: 'pm15_review',
         priority: 28,
+        category: 'operations',
         entity_type: 'projects',
         entity_id: p.id,
         ref_id: p.reference_id,
@@ -480,6 +587,7 @@ export function actionItems(): ActionItem[] {
       items.push({
         type: 'invoice_pending',
         priority: 26,
+        category: 'operations',
         entity_type: 'projects',
         entity_id: p.id,
         ref_id: p.reference_id,
@@ -519,16 +627,22 @@ export function enrichedRecentActivity(limit: number = 20): EnrichedActivity[] {
   const raw = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
   const entries = (raw.audit_log ?? []) as db.AuditEntry[]
 
-  // Build entity name cache
+  // Build entity name cache with human-readable names
   const nameCache = new Map<string, string>()
+  const refIdCache = new Map<string, string>()
   const allCollections = raw as Record<string, Record<string, Record<string, unknown>>>
   for (const col of Object.keys(allCollections)) {
     if (col === 'audit_log' || col === 'integration_events') continue
     const records = allCollections[col]
     if (typeof records === 'object' && records !== null && !Array.isArray(records)) {
       for (const [id, record] of Object.entries(records)) {
-        const name = record['name'] ?? record['project_name'] ?? record['stage_name'] ?? record['scope_delta'] ?? record['reference_id'] ?? id.slice(0, 8)
-        nameCache.set(id, String(name).slice(0, 60))
+        const refId = String(record['reference_id'] ?? '')
+        refIdCache.set(id, refId)
+        const resolvedName = resolveEntityName(col, record)
+        const displayName = resolvedName
+          ? (refId ? `${resolvedName} (${refId})` : resolvedName)
+          : (refId || id.slice(0, 8))
+        nameCache.set(id, displayName.slice(0, 80))
       }
     }
   }
@@ -622,6 +736,44 @@ export function arAgingByClient(): { client_id: string; '0-30': number; '31-60':
 /** PM-15 review closure rate — stub */
 export function pmReviewClosureRate(): { rate: number; closed: number; total: number } {
   return { rate: 0, closed: 0, total: 0 }
+}
+
+// ---------------------------------------------------------------------------
+// Contact Follow-up KPI
+// ---------------------------------------------------------------------------
+
+export interface ContactFollowupCounts {
+  overdue: number
+  today: number
+  thisWeek: number
+  total: number
+}
+
+/** Count contact follow-ups by urgency bucket */
+export function contactFollowupCounts(): ContactFollowupCounts {
+  const allContacts = db.list<Contact>('contacts')
+  const now = new Date()
+  const todayDate = now.toISOString().split('T')[0]!
+  const todayMs = new Date(todayDate).getTime()
+  const weekEnd = new Date(todayMs + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
+
+  let overdue = 0
+  let todayCount = 0
+  let thisWeek = 0
+
+  for (const c of allContacts) {
+    const dueDate = c.next_step_due_date ?? c.next_action_date
+    if (!dueDate) continue
+    const dateOnly = dueDate.split('T')[0]!
+    if (dateOnly < todayDate) {
+      overdue++
+    } else if (dateOnly === todayDate) {
+      todayCount++
+    } else if (dateOnly <= weekEnd) {
+      thisWeek++
+    }
+  }
+  return { overdue, today: todayCount, thisWeek, total: overdue + todayCount + thisWeek }
 }
 
 // ---------------------------------------------------------------------------
