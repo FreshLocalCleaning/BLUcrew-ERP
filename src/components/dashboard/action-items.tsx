@@ -158,9 +158,35 @@ export function ActionItems({ items }: ActionItemsProps) {
   )
 }
 
+function getUrgencyBadge(item: ActionItem): { label: string; color: string; bgColor: string } {
+  // Overdue — past due date
+  if (item.days_overdue != null && item.days_overdue > 0) {
+    return { label: `${item.days_overdue}d Late`, color: 'text-red-500', bgColor: 'bg-red-500/10' }
+  }
+  // Due today
+  if (item.days_until === 0 || item.days_overdue === 0) {
+    return { label: 'Today', color: 'text-amber-500', bgColor: 'bg-amber-500/10' }
+  }
+  // Due this week (1-7 days)
+  if (item.days_until != null && item.days_until <= 7) {
+    return { label: `${item.days_until}d`, color: 'text-green-500', bgColor: 'bg-green-500/10' }
+  }
+  // Farther out or no date
+  if (item.days_until != null) {
+    return { label: `${item.days_until}d`, color: 'text-muted-foreground', bgColor: 'bg-muted' }
+  }
+  // Special types that aren't time-based
+  const config = TYPE_CONFIG[item.type]
+  if (config && item.type !== 'overdue' && item.type !== 'upcoming') {
+    return { label: config.label, color: config.color, bgColor: 'bg-transparent' }
+  }
+  return { label: 'Upcoming', color: 'text-green-500', bgColor: 'bg-green-500/10' }
+}
+
 function ActionItemRow({ item }: { item: ActionItem }) {
   const config = TYPE_CONFIG[item.type] ?? { icon: AlertTriangle, color: 'text-muted-foreground', label: item.type }
   const Icon = config.icon
+  const urgency = getUrgencyBadge(item)
 
   return (
     <Link
@@ -174,19 +200,9 @@ function ActionItemRow({ item }: { item: ActionItem }) {
             {item.name}
           </span>
           <span className="font-mono text-[10px] text-muted-foreground">({item.ref_id})</span>
-          {item.days_overdue != null && item.days_overdue > 0 && (
-            <span className="rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-red-500">
-              {item.days_overdue}d overdue
-            </span>
-          )}
-          {item.days_until != null && (
-            <span className={cn(
-              'rounded-full px-1.5 py-0.5 text-[10px] font-bold',
-              item.days_until === 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-green-500/10 text-green-500',
-            )}>
-              {item.days_until === 0 ? 'Today' : `${item.days_until}d`}
-            </span>
-          )}
+          <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-bold', urgency.bgColor, urgency.color)}>
+            {urgency.label}
+          </span>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground truncate">{item.message}</p>
         {item.contact_owner && (
@@ -196,8 +212,8 @@ function ActionItemRow({ item }: { item: ActionItem }) {
           </p>
         )}
       </div>
-      <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', config.color, 'bg-transparent')}>
-        {config.label}
+      <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold', urgency.bgColor, urgency.color)}>
+        {urgency.label}
       </span>
     </Link>
   )
