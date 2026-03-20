@@ -29,6 +29,12 @@ function todayStr(): string {
   return new Date().toISOString().split('T')[0]!
 }
 
+function formatCurrency(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
+  return `$${n}`
+}
+
 // ---------------------------------------------------------------------------
 // Commercial KPIs
 // ---------------------------------------------------------------------------
@@ -60,7 +66,7 @@ export function estimateReadyCycleTime(): { median_days: number; sample_count: n
 /** Proposal aging by bucket: count of active proposals grouped by age */
 export function proposalAgingByBucket(): { '0-7': number; '8-14': number; '15-30': number; '30+': number; total: number } {
   const proposals = db.list<Proposal>('proposals')
-  const active = proposals.filter((p) => ['delivered', 'in_review'].includes(p.status))
+  const active = proposals.filter((p) => ['delivered', 'in_review', 'hold'].includes(p.status))
   const today = todayStr()
   const buckets = { '0-7': 0, '8-14': 0, '15-30': 0, '30+': 0, total: active.length }
 
@@ -75,14 +81,14 @@ export function proposalAgingByBucket(): { '0-7': number; '8-14': number; '15-30
 }
 
 /** Win rate: accepted / (accepted + rejected) over rolling 90 days */
-export function winRate(): { rate: number; accepted: number; rejected: number } {
+export function winRate(): { rate: number; accepted: number; rejected: number; hasData: boolean } {
   const proposals = db.list<Proposal>('proposals')
   const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
   const recent = proposals.filter((p) => p.updated_at >= cutoff)
   const accepted = recent.filter((p) => p.status === 'accepted').length
   const rejected = recent.filter((p) => p.status === 'rejected').length
   const total = accepted + rejected
-  return { rate: total > 0 ? accepted / total : 0, accepted, rejected }
+  return { rate: total > 0 ? accepted / total : 0, accepted, rejected, hasData: total > 0 }
 }
 
 /** Loss reason distribution: top rejection reasons by count */
@@ -120,6 +126,19 @@ export function nextActionHygiene(): { rate: number; compliant: number; total: n
   return { rate: total > 0 ? compliant / total : 0, compliant, total }
 }
 
+/** Contact coverage: client breakdown by tier */
+export function clientTierBreakdown(): { A: number; B: number; C: number; unset: number } {
+  const clients = db.list<Client>('clients')
+  const result = { A: 0, B: 0, C: 0, unset: 0 }
+  for (const c of clients) {
+    if (c.tier === 'A') result.A++
+    else if (c.tier === 'B') result.B++
+    else if (c.tier === 'C') result.C++
+    else result.unset++
+  }
+  return result
+}
+
 // ---------------------------------------------------------------------------
 // PM / Operations KPIs
 // ---------------------------------------------------------------------------
@@ -133,11 +152,9 @@ export function jobsAwaitingPMClaim(): number {
 /** Readiness pass rate: mobilizations reaching ready on first attempt / total mobilizations */
 export function readinessPassRate(): { rate: number; first_attempt: number; total: number } {
   const mobs = db.list<Mobilization>('mobilizations')
-  // Count mobs that are/were in ready, in_field, or complete
   const advanced = mobs.filter((m) =>
     ['ready', 'in_field', 'complete'].includes(m.status),
   )
-  // First attempt = never went through blocked state (heuristic: blocker_reason is null)
   const firstAttempt = advanced.filter((m) => !m.blocker_reason)
   return {
     rate: advanced.length > 0 ? firstAttempt.length / advanced.length : 0,
@@ -146,15 +163,438 @@ export function readinessPassRate(): { rate: number; first_attempt: number; tota
   }
 }
 
+/** Operations health snapshot */
+export function opsHealthSnapshot(): {
+  projectsByStatus: Record<string, number>
+  totalProjects: number
+  mobsThisMonth: number
+  mobsByState: Record<string, number>
+  coByStatus: Record<string, number>
+  totalCOs: number
+  financiallyOpen: number
+  financiallyOpenDays: number
+} {
+  const projects = db.list<Project>('projects')
+  const mobs = db.list<Mobilization>('mobilizations')
+  const cos = db.list<ChangeOrder>('change_orders')
+  const today = todayStr()
+
+  // Projects by status
+  const projectsByStatus: Record<string, number> = {}
+  for (const p of projects) {
+    projectsByStatus[p.status] = (projectsByStatus[p.status] ?? 0) + 1
+  }
+
+  // Mobs this month
+  const monthStart = today.slice(0, 7) // YYYY-MM
+  const mobsThisMonth = mobs.filter((m) =>
+    m.requested_start_date && m.requested_start_date.startsWith(monthStart),
+  ).length
+
+  // Mobs by state
+  const mobsByState: Record<string, number> = {}
+  for (const m of mobs) {
+    mobsByState[m.status] = (mobsByState[m.status] ?? 0) + 1
+  }
+
+  // COs by status
+  const coByStatus: Record<string, number> = {}
+  for (const co of cos) {
+    coByStatus[co.status] = (coByStatus[co.status] ?? 0) + 1
+  }
+
+  // Financially open projects
+  const foProjects = projects.filter((p) => p.status === 'financially_open')
+  let foDays = 0
+  for (const p of foProjects) {
+    foDays += daysBetween(p.updated_at, new Date().toISOString())
+  }
+
+  return {
+    projectsByStatus,
+    totalProjects: projects.length,
+    mobsThisMonth,
+    mobsByState,
+    coByStatus,
+    totalCOs: cos.length,
+    financiallyOpen: foProjects.length,
+    financiallyOpenDays: foDays,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline / Dashboard aggregates
+// ---------------------------------------------------------------------------
+
+export interface PipelineStage {
+  stage: string
+  label: string
+  count: number
+  value: number
+  href: string
+}
+
+/** Pipeline value by stage — for dashboard funnel chart */
+export function pipelineValueByStage(): PipelineStage[] {
+  const signals = db.list<Record<string, unknown> & db.BaseEntity>('project_signals')
+  const pursuits = db.list<Pursuit>('pursuits')
+  const estimates = db.list<Estimate>('estimates')
+  const proposals = db.list<Proposal>('proposals')
+  const awards = db.list<AwardHandoff>('award_handoffs')
+  const projects = db.list<Project>('projects')
+  const mobs = db.list<Mobilization>('mobilizations')
+
+  const activeSignals = signals.filter((s) => s['status'] === 'under_review')
+  const activePursuits = pursuits.filter((p) =>
+    !['estimate_ready', 'no_bid', 'dormant', 'hold'].includes(p.stage),
+  )
+  const estInBuild = estimates.filter((e) => ['draft', 'in_build', 'qa_review'].includes(e.status))
+  const activeProposals = proposals.filter((p) => ['delivered', 'in_review', 'hold'].includes(p.status))
+  const activeAwards = awards.filter((a) =>
+    ['awarded_intake_open', 'compliance_in_progress', 'handoff_posted', 'pm_claimed'].includes(a.status),
+  )
+  const activeProjects = projects.filter((p) =>
+    ['startup_pending', 'forecasting_active', 'execution_active'].includes(p.status),
+  )
+  const inFieldMobs = mobs.filter((m) => m.status === 'in_field')
+
+  return [
+    { stage: 'signals', label: 'Signals', count: activeSignals.length, value: 0, href: '/project-signals' },
+    { stage: 'pursuits', label: 'Pursuits', count: activePursuits.length, value: 0, href: '/pursuits' },
+    { stage: 'estimates', label: 'Estimates', count: estInBuild.length, value: 0, href: '/estimates' },
+    {
+      stage: 'proposals', label: 'Proposals', count: activeProposals.length,
+      value: activeProposals.reduce((sum, p) => sum + (p.proposal_value ?? 0), 0),
+      href: '/proposals',
+    },
+    { stage: 'awards', label: 'Awards', count: activeAwards.length, value: 0, href: '/handoffs' },
+    { stage: 'projects', label: 'Projects', count: activeProjects.length, value: 0, href: '/projects' },
+    { stage: 'mobilizations', label: 'In Field', count: inFieldMobs.length, value: 0, href: '/mobilizations' },
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// Action Items (replaces alerts — comprehensive task queue)
+// ---------------------------------------------------------------------------
+
+export interface ActionItem {
+  type: string
+  priority: number // lower = more urgent
+  entity_type: string
+  entity_id: string
+  ref_id: string
+  name: string
+  message: string
+  days_overdue?: number
+  days_until?: number
+  href: string
+}
+
+const ENTITY_ROUTES: Record<string, string> = {
+  clients: '/clients',
+  contacts: '/contacts',
+  project_signals: '/project-signals',
+  pursuits: '/pursuits',
+  estimates: '/estimates',
+  proposals: '/proposals',
+  award_handoffs: '/handoffs',
+  projects: '/projects',
+  mobilizations: '/mobilizations',
+  change_orders: '/change-orders',
+  expansion_tasks: '/growth',
+}
+
+function entityHref(col: string, id: string): string {
+  return `${ENTITY_ROUTES[col] ?? ''}/${id}`
+}
+
+/** Build comprehensive action items list sorted by urgency */
+export function actionItems(): ActionItem[] {
+  const items: ActionItem[] = []
+  const today = todayStr()
+  const todayMs = new Date(today).getTime()
+  const sevenDays = new Date(todayMs + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
+  const staleThreshold = new Date(todayMs - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const proposalStaleThreshold = new Date(todayMs - 14 * 24 * 60 * 60 * 1000).toISOString()
+
+  // --- Overdue + upcoming next actions across all entities ---
+  const collections: db.EntityCollectionName[] = [
+    'clients', 'contacts', 'pursuits', 'estimates', 'proposals',
+    'award_handoffs', 'projects', 'mobilizations', 'change_orders',
+  ]
+  for (const col of collections) {
+    const entities = db.list<db.BaseEntity & Record<string, unknown>>(col)
+    for (const e of entities) {
+      const refId = String(e['reference_id'] ?? e['name'] ?? e.id.slice(0, 8))
+      const name = String(e['name'] ?? e['project_name'] ?? e['stage_name'] ?? refId)
+      if (e.next_action_date) {
+        if (e.next_action_date < today) {
+          const overdue = daysBetween(e.next_action_date, today)
+          items.push({
+            type: 'overdue',
+            priority: 10 - Math.min(overdue, 10),
+            entity_type: col,
+            entity_id: e.id,
+            ref_id: refId,
+            name,
+            message: e.next_action ?? 'No action specified',
+            days_overdue: overdue,
+            href: entityHref(col, e.id),
+          })
+        } else if (e.next_action_date <= sevenDays!) {
+          const daysUntil = daysBetween(today, e.next_action_date)
+          items.push({
+            type: 'upcoming',
+            priority: 30 + daysUntil,
+            entity_type: col,
+            entity_id: e.id,
+            ref_id: refId,
+            name,
+            message: e.next_action ?? 'Action due',
+            days_until: daysUntil,
+            href: entityHref(col, e.id),
+          })
+        }
+      }
+    }
+  }
+
+  // --- Pursuits stuck in same stage 7+ days ---
+  const pursuits = db.list<Pursuit>('pursuits')
+  for (const p of pursuits) {
+    if (!['estimate_ready', 'no_bid', 'dormant', 'hold'].includes(p.stage) && p.updated_at < staleThreshold) {
+      items.push({
+        type: 'stalled_pursuit',
+        priority: 20,
+        entity_type: 'pursuits',
+        entity_id: p.id,
+        ref_id: p.reference_id,
+        name: p.project_name,
+        message: `Stuck at ${p.stage.replace(/_/g, ' ')} for ${daysBetween(p.updated_at, new Date().toISOString())}d`,
+        href: `/pursuits/${p.id}`,
+      })
+    }
+  }
+
+  // --- Estimates awaiting QA ---
+  const estimates = db.list<Estimate>('estimates')
+  for (const e of estimates) {
+    if (e.status === 'qa_review') {
+      items.push({
+        type: 'estimate_qa',
+        priority: 22,
+        entity_type: 'estimates',
+        entity_id: e.id,
+        ref_id: e.reference_id,
+        name: e.project_name,
+        message: 'Awaiting QA review',
+        href: `/estimates/${e.id}`,
+      })
+    }
+  }
+
+  // --- COs needing pricing ---
+  const cos = db.list<ChangeOrder>('change_orders')
+  for (const co of cos) {
+    if (co.status === 'internal_review' && !co.pricing_delta) {
+      items.push({
+        type: 'co_needs_pricing',
+        priority: 18,
+        entity_type: 'change_orders',
+        entity_id: co.id,
+        ref_id: co.reference_id,
+        name: co.scope_delta.length > 50 ? co.scope_delta.slice(0, 50) + '…' : co.scope_delta,
+        message: 'Needs pricing from Estimating',
+        href: `/change-orders/${co.id}`,
+      })
+    }
+  }
+
+  // --- Proposals awaiting decision 14+ days ---
+  const proposals = db.list<Proposal>('proposals')
+  for (const p of proposals) {
+    if (['delivered', 'in_review'].includes(p.status) && p.updated_at < proposalStaleThreshold) {
+      items.push({
+        type: 'proposal_stale',
+        priority: 25,
+        entity_type: 'proposals',
+        entity_id: p.id,
+        ref_id: p.reference_id,
+        name: p.linked_pursuit_id ?? p.reference_id,
+        message: `Awaiting decision for ${daysBetween(p.delivery_date ?? p.created_at, new Date().toISOString())}d`,
+        href: `/proposals/${p.id}`,
+      })
+    }
+  }
+
+  // --- Handoffs awaiting PM claim ---
+  const awards = db.list<AwardHandoff>('award_handoffs')
+  for (const a of awards) {
+    if (a.status === 'handoff_posted') {
+      items.push({
+        type: 'awaiting_pm_claim',
+        priority: 15,
+        entity_type: 'award_handoffs',
+        entity_id: a.id,
+        ref_id: a.reference_id,
+        name: a.project_name,
+        message: 'Handoff posted — needs PM claim',
+        href: `/handoffs/${a.id}`,
+      })
+    }
+  }
+
+  // --- Blocked mobilizations ---
+  const mobs = db.list<Mobilization>('mobilizations')
+  for (const m of mobs) {
+    if (m.status === 'blocked') {
+      items.push({
+        type: 'blocked_mob',
+        priority: 12,
+        entity_type: 'mobilizations',
+        entity_id: m.id,
+        ref_id: m.reference_id,
+        name: m.stage_name,
+        message: `Blocked: ${m.blocker_reason ?? 'Unknown'}`,
+        href: `/mobilizations/${m.id}`,
+      })
+    }
+  }
+
+  // --- Projects at operationally_complete (PM-15 reviews due) ---
+  const projects = db.list<Project>('projects')
+  for (const p of projects) {
+    if (p.status === 'operationally_complete') {
+      items.push({
+        type: 'pm15_review',
+        priority: 28,
+        entity_type: 'projects',
+        entity_id: p.id,
+        ref_id: p.reference_id,
+        name: p.project_name,
+        message: 'PM-15 review due — operationally complete',
+        href: `/projects/${p.id}`,
+      })
+    }
+    if (p.status === 'financially_open') {
+      items.push({
+        type: 'invoice_pending',
+        priority: 26,
+        entity_type: 'projects',
+        entity_id: p.id,
+        ref_id: p.reference_id,
+        name: p.project_name,
+        message: 'Invoices pending release — financially open',
+        href: `/projects/${p.id}`,
+      })
+    }
+  }
+
+  // Sort by priority (lower = more urgent)
+  items.sort((a, b) => a.priority - b.priority)
+  return items
+}
+
+// ---------------------------------------------------------------------------
+// Recent Activity (enriched)
+// ---------------------------------------------------------------------------
+
+export interface EnrichedActivity {
+  id: string
+  action: string
+  entity_type: string
+  entity_id: string
+  description: string
+  timestamp: string
+  actor_id: string
+  href: string
+  date_group: 'today' | 'yesterday' | 'this_week' | 'older'
+}
+
+export function enrichedRecentActivity(limit: number = 20): EnrichedActivity[] {
+  const fs = require('fs')
+  const path = require('path')
+  const dbPath = path.join(process.cwd(), '.data', 'workflow-db.json')
+  if (!fs.existsSync(dbPath)) return []
+  const raw = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
+  const entries = (raw.audit_log ?? []) as db.AuditEntry[]
+
+  // Build entity name cache
+  const nameCache = new Map<string, string>()
+  const allCollections = raw as Record<string, Record<string, Record<string, unknown>>>
+  for (const col of Object.keys(allCollections)) {
+    if (col === 'audit_log' || col === 'integration_events') continue
+    const records = allCollections[col]
+    if (typeof records === 'object' && records !== null && !Array.isArray(records)) {
+      for (const [id, record] of Object.entries(records)) {
+        const name = record['name'] ?? record['project_name'] ?? record['stage_name'] ?? record['scope_delta'] ?? record['reference_id'] ?? id.slice(0, 8)
+        nameCache.set(id, String(name).slice(0, 60))
+      }
+    }
+  }
+
+  const now = new Date()
+  const todayDate = now.toISOString().split('T')[0]
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  const ENTITY_LABELS: Record<string, string> = {
+    clients: 'client',
+    contacts: 'contact',
+    project_signals: 'signal',
+    pursuits: 'pursuit',
+    estimates: 'estimate',
+    proposals: 'proposal',
+    award_handoffs: 'handoff',
+    projects: 'project',
+    mobilizations: 'mobilization',
+    change_orders: 'change order',
+    expansion_tasks: 'growth task',
+    equipment_templates: 'equipment template',
+  }
+
+  return entries.slice(-limit).reverse().map((entry) => {
+    const entityName = nameCache.get(entry.entity_id) ?? entry.entity_id.slice(0, 8)
+    const entityLabel = ENTITY_LABELS[entry.entity_type] ?? entry.entity_type
+    const verb = entry.action === 'create' ? 'created' : entry.action === 'update' ? 'updated' : entry.action === 'delete' ? 'archived' : entry.action
+    const entryDate = entry.timestamp.split('T')[0]!
+
+    let dateGroup: EnrichedActivity['date_group'] = 'older'
+    if (entryDate === todayDate) dateGroup = 'today'
+    else if (entryDate === yesterday) dateGroup = 'yesterday'
+    else if (entryDate! >= weekAgo!) dateGroup = 'this_week'
+
+    let description = `${entry.actor_id} ${verb} ${entityLabel} "${entityName}"`
+    if (entry.reason) {
+      description += ` — ${entry.reason}`
+    } else if (entry.action === 'update' && Object.keys(entry.field_changes).length > 0) {
+      const fields = Object.keys(entry.field_changes).slice(0, 3).join(', ')
+      description += ` (${fields})`
+    }
+
+    return {
+      id: entry.id,
+      action: entry.action,
+      entity_type: entry.entity_type,
+      entity_id: entry.entity_id,
+      description,
+      timestamp: entry.timestamp,
+      actor_id: entry.actor_id,
+      href: entityHref(entry.entity_type, entry.entity_id),
+      date_group: dateGroup,
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// PM KPIs (kept for tests)
+// ---------------------------------------------------------------------------
+
 /** Callback rate: mobilizations requiring return visit / total completed */
 export function callbackRate(): { rate: number; callbacks: number; completed: number } {
   const mobs = db.list<Mobilization>('mobilizations')
   const completed = mobs.filter((m) => m.status === 'complete')
-  // Heuristic: if a project has >1 completed mobilization, additional ones may be callbacks
-  // For now, count mobilizations with "callback" or "return" in stage_name
-  const callbacks = completed.filter((m) =>
-    /callback|return|punch/i.test(m.stage_name),
-  )
+  const callbacks = completed.filter((m) => /callback|return|punch/i.test(m.stage_name))
   return {
     rate: completed.length > 0 ? callbacks.length / completed.length : 0,
     callbacks: callbacks.length,
@@ -162,7 +602,7 @@ export function callbackRate(): { rate: number; callbacks: number; completed: nu
   }
 }
 
-/** Invoice release speed: median days from mobilization complete to invoice_release_status = released */
+/** Invoice release speed: median days from mobilization complete to invoice released */
 export function invoiceReleaseSpeed(): { median_days: number; sample_count: number } {
   const mobs = db.list<Mobilization>('mobilizations')
   const durations: number[] = []
@@ -174,153 +614,27 @@ export function invoiceReleaseSpeed(): { median_days: number; sample_count: numb
   return { median_days: median(durations), sample_count: durations.length }
 }
 
-/** AR aging by client: outstanding amounts grouped by age buckets */
+/** AR aging by client — stub */
 export function arAgingByClient(): { client_id: string; '0-30': number; '31-60': number; '61-90': number; '90+': number }[] {
-  // Stub — no real invoicing system yet. Returns empty.
   return []
 }
 
-/** PM-15 review closure rate: completed reviews within 14 days / total triggered */
+/** PM-15 review closure rate — stub */
 export function pmReviewClosureRate(): { rate: number; closed: number; total: number } {
-  // Stub — PM-15 reviews not yet implemented. Returns 0%.
   return { rate: 0, closed: 0, total: 0 }
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline / Dashboard aggregates
+// Legacy exports (kept for backward compat in tests)
 // ---------------------------------------------------------------------------
 
-export interface PipelineStage {
-  stage: string
-  count: number
-  value: number
-}
-
-/** Pipeline value by stage — for dashboard chart */
-export function pipelineValueByStage(): PipelineStage[] {
-  const pursuits = db.list<Pursuit>('pursuits')
-  const estimates = db.list<Estimate>('estimates')
-  const proposals = db.list<Proposal>('proposals')
-  const awards = db.list<AwardHandoff>('award_handoffs')
-  const projects = db.list<Project>('projects')
-
-  const qualPursuits = pursuits.filter((p) =>
-    ['qualification_underway', 'qualified_pursuit', 'preconstruction_packet_open', 'site_walk_scheduled', 'site_walk_complete'].includes(p.stage),
-  )
-  const estInBuild = estimates.filter((e) => ['draft', 'in_build', 'qa_review'].includes(e.status))
-  const activeProposals = proposals.filter((p) => ['delivered', 'in_review'].includes(p.status))
-  const activeAwards = awards.filter((a) =>
-    ['awarded_intake_open', 'compliance_in_progress', 'handoff_posted', 'pm_claimed'].includes(a.status),
-  )
-  const execProjects = projects.filter((p) =>
-    ['forecasting_active', 'execution_active'].includes(p.status),
-  )
-
-  return [
-    { stage: 'Pursuits in Qualification', count: qualPursuits.length, value: 0 },
-    { stage: 'Estimates in Build/QA', count: estInBuild.length, value: 0 },
-    {
-      stage: 'Proposals Delivered',
-      count: activeProposals.length,
-      value: activeProposals.reduce((sum, p) => sum + (p.proposal_value ?? 0), 0),
-    },
-    { stage: 'Awards in Compliance/Handoff', count: activeAwards.length, value: 0 },
-    { stage: 'Projects in Execution', count: execProjects.length, value: 0 },
-  ]
-}
-
-/** Active alerts: overdue next actions, stalled pursuits, blocked mobs, etc. */
-export interface Alert {
-  type: string
-  entity_type: string
-  entity_id: string
-  ref_id: string
-  message: string
-}
-
-export function activeAlerts(): Alert[] {
-  const alerts: Alert[] = []
-  const today = todayStr()
-
-  // Overdue next actions across entities
-  const collections: db.EntityCollectionName[] = [
-    'clients', 'pursuits', 'estimates', 'proposals',
-    'award_handoffs', 'projects', 'mobilizations', 'change_orders',
-  ]
-  for (const col of collections) {
-    const entities = db.list<db.BaseEntity & Record<string, unknown>>(col)
-    for (const e of entities) {
-      if (e.next_action_date && e.next_action_date < today) {
-        alerts.push({
-          type: 'overdue_next_action',
-          entity_type: col,
-          entity_id: e.id,
-          ref_id: String(e['reference_id'] ?? e.id.slice(0, 8)),
-          message: `Overdue: ${e.next_action ?? 'No action specified'} (due ${e.next_action_date})`,
-        })
-      }
-    }
-  }
-
-  // Blocked mobilizations
-  const mobs = db.list<Mobilization>('mobilizations')
-  for (const m of mobs) {
-    if (m.status === 'blocked') {
-      alerts.push({
-        type: 'blocked_mobilization',
-        entity_type: 'mobilizations',
-        entity_id: m.id,
-        ref_id: m.reference_id,
-        message: `Blocked: ${m.blocker_reason ?? 'Unknown reason'}`,
-      })
-    }
-  }
-
-  // Change orders awaiting estimating (internal_review = needs pricing)
-  const changeOrders = db.list<ChangeOrder>('change_orders')
-  for (const co of changeOrders) {
-    if (co.status === 'internal_review' && !co.pricing_delta) {
-      alerts.push({
-        type: 'co_needs_pricing',
-        entity_type: 'change_orders',
-        entity_id: co.id,
-        ref_id: co.reference_id,
-        message: `Needs pricing: ${co.scope_delta.length > 60 ? co.scope_delta.slice(0, 60) + '…' : co.scope_delta}`,
-      })
-    }
-  }
-
-  // Stalled pursuits (no update in 14+ days)
-  const pursuits = db.list<Pursuit>('pursuits')
-  const staleDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
-  for (const p of pursuits) {
-    if (!['estimate_ready', 'no_bid', 'dormant', 'hold'].includes(p.stage) && p.updated_at < staleDate) {
-      alerts.push({
-        type: 'stalled_pursuit',
-        entity_type: 'pursuits',
-        entity_id: p.id,
-        ref_id: p.reference_id,
-        message: `Stalled: no activity since ${p.updated_at.split('T')[0]}`,
-      })
-    }
-  }
-
-  return alerts
-}
-
-/** Recent activity: last N audit log entries across all entities */
+export type Alert = ActionItem
+export function activeAlerts(): ActionItem[] { return actionItems() }
 export function recentActivity(limit: number = 10): db.AuditEntry[] {
-  const allDb = db.list<db.BaseEntity>('clients') // dummy call to trigger readDb
-  // We need raw access to audit_log
-  const events = (() => {
-    // Read audit log directly
-    const fs = require('fs')
-    const path = require('path')
-    const dbPath = path.join(process.cwd(), '.data', 'workflow-db.json')
-    if (!fs.existsSync(dbPath)) return []
-    const raw = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
-    return (raw.audit_log ?? []) as db.AuditEntry[]
-  })()
-
-  return events.slice(-limit).reverse()
+  const fs = require('fs')
+  const path = require('path')
+  const dbPath = path.join(process.cwd(), '.data', 'workflow-db.json')
+  if (!fs.existsSync(dbPath)) return []
+  const raw = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
+  return ((raw.audit_log ?? []) as db.AuditEntry[]).slice(-limit).reverse()
 }

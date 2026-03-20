@@ -135,10 +135,11 @@ describe('KPI Engine — Pipeline / Dashboard', () => {
     seedAll()
   })
 
-  it('pipelineValueByStage returns 5 stages', () => {
+  it('pipelineValueByStage returns 7 stages', () => {
     const result = pipelineValueByStage()
-    expect(result).toHaveLength(5)
-    expect(result[0]!.stage).toBe('Pursuits in Qualification')
+    expect(result).toHaveLength(7)
+    expect(result[0]!.stage).toBe('signals')
+    expect(result[1]!.stage).toBe('pursuits')
   })
 
   it('activeAlerts returns array of alerts', () => {

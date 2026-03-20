@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import {
   Zap,
   Clock,
@@ -27,13 +28,14 @@ interface KpiCardProps {
   subtitle?: string
   icon: string
   color: string
+  href?: string
 }
 
-export function KpiCard({ label, value, subtitle, icon, color }: KpiCardProps) {
+export function KpiCard({ label, value, subtitle, icon, color, href }: KpiCardProps) {
   const Icon = ICON_MAP[icon] ?? Zap
 
-  return (
-    <div className="rounded-lg border border-border bg-card p-5">
+  const content = (
+    <div className={`rounded-lg border border-border bg-card p-5 ${href ? 'hover:bg-muted/30 transition-colors' : ''}`}>
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
         <Icon className={`h-5 w-5 ${color}`} />
@@ -44,4 +46,9 @@ export function KpiCard({ label, value, subtitle, icon, color }: KpiCardProps) {
       )}
     </div>
   )
+
+  if (href) {
+    return <Link href={href}>{content}</Link>
+  }
+  return content
 }
