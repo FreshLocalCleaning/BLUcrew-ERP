@@ -4,11 +4,13 @@ import { ProposalCreateForm } from '@/components/proposal/proposal-create-form'
 import { listEstimates } from '@/lib/db/estimates'
 import { seedClients, seedContacts, seedProjectSignals, seedPursuits, seedEstimates } from '@/lib/db/seed'
 
-export default function NewProposalPage({
-  searchParams,
-}: {
-  searchParams: { clientId?: string; estimateId?: string }
-}) {
+interface NewProposalPageProps {
+  searchParams: Promise<{ clientId?: string; estimateId?: string }>
+}
+
+export default async function NewProposalPage({ searchParams }: NewProposalPageProps) {
+  const { clientId, estimateId } = await searchParams
+
   seedClients()
   seedContacts()
   seedProjectSignals()
@@ -19,9 +21,9 @@ export default function NewProposalPage({
   const eligibleEstimates = estimates.filter((e) => e.status === 'approved_for_proposal')
 
   // Determine preselection: explicit estimateId > single eligible estimate for clientId
-  let preselectedEstimateId = searchParams.estimateId
-  if (!preselectedEstimateId && searchParams.clientId) {
-    const clientEstimates = eligibleEstimates.filter(e => e.linked_client_id === searchParams.clientId)
+  let preselectedEstimateId = estimateId
+  if (!preselectedEstimateId && clientId) {
+    const clientEstimates = eligibleEstimates.filter(e => e.linked_client_id === clientId)
     if (clientEstimates.length === 1) {
       preselectedEstimateId = clientEstimates[0]!.id
     }

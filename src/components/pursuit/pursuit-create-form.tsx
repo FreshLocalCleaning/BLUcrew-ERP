@@ -72,6 +72,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
   const preClient = effectiveClientId ? clients.find(c => c.id === effectiveClientId) : undefined
   const [selectedClientId, setSelectedClientId] = useState(effectiveClientId)
   const [selectedSignalId, setSelectedSignalId] = useState(preselectedSignalId ?? '')
+  const [selectedContactId, setSelectedContactId] = useState(preSignal?.linked_contact_id ?? '')
 
   // Milestone state
   const [milestones, setMilestones] = useState<PursuitMilestone[]>(createDefaultMilestones())
@@ -132,6 +133,9 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
       if (signal.linked_contact_id) {
         setValue('primary_contact_id', signal.linked_contact_id)
         setValue('primary_contact_name', signal.linked_contact_name ?? '')
+        setSelectedContactId(signal.linked_contact_id)
+      } else {
+        setSelectedContactId('')
       }
 
       // Map signal type → pursuit signal type
@@ -164,6 +168,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
     setValue('client_name', client?.name ?? '')
     setValue('primary_contact_id', '')
     setValue('primary_contact_name', '')
+    setSelectedContactId('')
     // Reset signal selection when client changes
     setSelectedSignalId('')
     setValue('linked_signal_id', '')
@@ -171,6 +176,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
 
   function handleContactChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const contactId = e.target.value
+    setSelectedContactId(contactId)
     setValue('primary_contact_id', contactId)
     const contact = contacts.find((c) => c.id === contactId)
     setValue('primary_contact_name', contact ? `${contact.first_name} ${contact.last_name}` : '')
@@ -193,7 +199,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
     setNewMilestoneName('')
   }
 
-  function removeCustomMilestone(index: number) {
+  function removeMilestone(index: number) {
     setMilestones((prev) => prev.filter((_, i) => i !== index))
   }
 
@@ -315,6 +321,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
             </label>
             <select
               onChange={handleContactChange}
+              value={selectedContactId}
               disabled={!selectedClientId}
               className={`${INPUT_CLS} disabled:opacity-50`}
             >
@@ -438,7 +445,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
           <span className="text-xs text-muted-foreground">{milestones.length} milestones</span>
         </div>
         <p className="text-sm text-muted-foreground">
-          Set dates and track key project milestones. Default milestones are always shown — add custom ones for project-specific events.
+          Set dates and track key project milestones. Remove any that don't apply — add custom ones for project-specific events.
         </p>
 
         <div className="space-y-3">
@@ -450,16 +457,14 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground">{ms.name}</span>
-                  {!ms.is_default && (
-                    <button
-                      type="button"
-                      onClick={() => removeCustomMilestone(idx)}
-                      className="text-red-400 hover:text-red-300"
-                      title="Remove milestone"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeMilestone(idx)}
+                    className="text-red-400 hover:text-red-300"
+                    title="Remove milestone"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <input

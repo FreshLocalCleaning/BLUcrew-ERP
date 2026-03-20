@@ -5,11 +5,13 @@ import { listPursuits } from '@/lib/db/pursuits'
 import { listEstimates } from '@/lib/db/estimates'
 import { seedClients, seedContacts, seedProjectSignals, seedPursuits, seedEstimates } from '@/lib/db/seed'
 
-export default function NewEstimatePage({
-  searchParams,
-}: {
-  searchParams: { clientId?: string; pursuitId?: string }
-}) {
+interface NewEstimatePageProps {
+  searchParams: Promise<{ clientId?: string; pursuitId?: string }>
+}
+
+export default async function NewEstimatePage({ searchParams }: NewEstimatePageProps) {
+  const { clientId, pursuitId } = await searchParams
+
   // Ensure seed data exists
   seedClients()
   seedContacts()
@@ -33,9 +35,9 @@ export default function NewEstimatePage({
   ]
 
   // Determine preselection: explicit pursuitId > single eligible pursuit for clientId
-  let preselectedPursuitId = searchParams.pursuitId
-  if (!preselectedPursuitId && searchParams.clientId) {
-    const clientPursuits = eligiblePursuits.filter(p => p.client_id === searchParams.clientId)
+  let preselectedPursuitId = pursuitId
+  if (!preselectedPursuitId && clientId) {
+    const clientPursuits = eligiblePursuits.filter(p => p.client_id === clientId)
     if (clientPursuits.length === 1) {
       preselectedPursuitId = clientPursuits[0]!.id
     }

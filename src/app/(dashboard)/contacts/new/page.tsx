@@ -4,16 +4,18 @@ import { ContactCreateForm } from '@/components/contact/contact-create-form'
 import { listClients, getClient } from '@/lib/db/clients'
 import { seedClients, seedContacts } from '@/lib/db/seed'
 
-export default function NewContactPage({
-  searchParams,
-}: {
-  searchParams: { client_id?: string }
-}) {
+interface NewContactPageProps {
+  searchParams: Promise<{ client_id?: string }>
+}
+
+export default async function NewContactPage({ searchParams }: NewContactPageProps) {
+  const { client_id } = await searchParams
+
   seedClients()
   seedContacts()
 
   const clients = listClients()
-  const preselectedClientId = searchParams.client_id ?? undefined
+  const preselectedClientId = client_id ?? undefined
   const preselectedClient = preselectedClientId ? getClient(preselectedClientId) : undefined
 
   return (

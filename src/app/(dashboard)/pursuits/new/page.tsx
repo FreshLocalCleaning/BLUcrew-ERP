@@ -6,11 +6,13 @@ import { listContacts } from '@/lib/db/contacts'
 import { listProjectSignals } from '@/lib/db/project-signals'
 import { seedClients, seedContacts, seedProjectSignals } from '@/lib/db/seed'
 
-export default function NewPursuitPage({
-  searchParams,
-}: {
-  searchParams: { clientId?: string; signalId?: string }
-}) {
+interface NewPursuitPageProps {
+  searchParams: Promise<{ clientId?: string; signalId?: string }>
+}
+
+export default async function NewPursuitPage({ searchParams }: NewPursuitPageProps) {
+  const { clientId, signalId } = await searchParams
+
   // Ensure seed data exists
   seedClients()
   seedContacts()
@@ -46,8 +48,8 @@ export default function NewPursuitPage({
         clients={clients}
         contacts={contacts}
         passedSignals={passedSignals}
-        preselectedClientId={searchParams.clientId}
-        preselectedSignalId={searchParams.signalId}
+        preselectedClientId={clientId}
+        preselectedSignalId={signalId}
       />
     </div>
   )
