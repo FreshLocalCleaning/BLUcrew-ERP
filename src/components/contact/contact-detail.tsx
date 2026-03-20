@@ -177,6 +177,9 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
   const [inlineNextStep, setInlineNextStep] = useState(contact.next_step ?? '')
   const [inlineNextStepDueDate, setInlineNextStepDueDate] = useState(contact.next_step_due_date ?? '')
   const [savingNextStep, setSavingNextStep] = useState(false)
+  const [editingOwner, setEditingOwner] = useState(false)
+  const [inlineOwner, setInlineOwner] = useState(contact.owner_name ?? '')
+  const [savingOwner, setSavingOwner] = useState(false)
   const [championModalOpen, setChampionModalOpen] = useState(false)
   const [championReason, setChampionReason] = useState('')
   const [savingChampion, setSavingChampion] = useState(false)
@@ -229,6 +232,27 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
       toast.error('An unexpected error occurred')
     }
     setSavingEdit(false)
+  }
+
+  async function handleSaveOwner() {
+    setSavingOwner(true)
+    try {
+      const result = await updateContactAction({
+        contact_id: contact.id,
+        owner_name: inlineOwner || null,
+      })
+      if (result.success && result.data) {
+        setContact(result.data)
+        setEditingOwner(false)
+        toast.success(`Owner changed to ${inlineOwner || 'Unassigned'}`)
+        router.refresh()
+      } else {
+        toast.error(result.error ?? 'Failed to update owner')
+      }
+    } catch {
+      toast.error('An unexpected error occurred')
+    }
+    setSavingOwner(false)
   }
 
   async function handleToggleChampion() {
@@ -410,9 +434,46 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
               {contact.preferred_channel && (
                 <DetailItem icon={MessageSquare} label="Preferred Channel" value={CONTACT_PREFERRED_CHANNEL_LABELS[contact.preferred_channel]} />
               )}
-              {contact.owner_name && (
-                <DetailItem icon={User} label="BLU Crew Owner" value={contact.owner_name} />
-              )}
+              <div className="flex items-start gap-3">
+                <User className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">BLU Crew Owner</p>
+                  {editingOwner ? (
+                    <div className="mt-1 flex items-center gap-2">
+                      <select
+                        value={inlineOwner}
+                        onChange={(e) => setInlineOwner(e.target.value)}
+                        className="rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Unassigned</option>
+                        <option value="Antonio">Antonio</option>
+                        <option value="Cullen">Cullen</option>
+                      </select>
+                      <button
+                        onClick={handleSaveOwner}
+                        disabled={savingOwner}
+                        className="rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        {savingOwner ? '...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={() => setEditingOwner(false)}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setInlineOwner(contact.owner_name ?? ''); setEditingOwner(true) }}
+                      className="group flex items-center gap-1.5 text-sm text-foreground hover:text-primary"
+                    >
+                      {contact.owner_name || '—'}
+                      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
