@@ -15,6 +15,8 @@ function makeEntity(overrides: Record<string, unknown> = {}): Record<string, unk
     source_evidence: 'Referral from contact',
     linked_client_id: 'c1',
     linked_contact_id: 'con-1',
+    timing_signal: 'Construction start Q3 2026',
+    fit_risk_note: 'Good fit for BLU Standard',
     next_action_date: '2026-04-01',
     ...overrides,
   }

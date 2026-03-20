@@ -59,7 +59,7 @@ export const projectSignalStateMachine: StateMachineDef<ProjectSignalState> = {
     {
       fromStates: ['under_review'],
       toState: 'passed',
-      requiredFields: ['linked_client_id', 'linked_contact_id', 'project_identity', 'signal_type', 'source_evidence'],
+      requiredFields: ['linked_client_id', 'linked_contact_id', 'project_identity', 'signal_type', 'source_evidence', 'timing_signal', 'fit_risk_note'],
       requiredRoles: ['leadership_system_admin', 'commercial_bd'],
       sideEffects: ['enable_pursuit_creation'],
       blockers: [],

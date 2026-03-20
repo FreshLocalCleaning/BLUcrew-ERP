@@ -103,7 +103,23 @@ export function SignalDetail({ signal: initialSignal, auditLog, clientName, clie
     signal.linked_contact_id &&
     signal.project_identity &&
     signal.signal_type &&
-    signal.source_evidence
+    signal.source_evidence &&
+    signal.timing_signal &&
+    signal.fit_risk_note
+
+  // Gate readiness criteria (visible only in received/under_review)
+  const showGateReadiness = signal.status === 'received' || signal.status === 'under_review'
+  const gateCriteria = [
+    { key: 'project_identity', label: 'Real Project', met: !!signal.project_identity },
+    { key: 'linked_client_id', label: 'Client Linked', met: !!signal.linked_client_id },
+    { key: 'linked_contact_id', label: 'Contact Linked', met: !!signal.linked_contact_id },
+    { key: 'signal_type', label: 'Signal Type Set', met: !!signal.signal_type },
+    { key: 'source_evidence', label: 'Source Evidence', met: !!signal.source_evidence },
+    { key: 'timing_signal', label: 'Timing Signal', met: !!signal.timing_signal },
+    { key: 'fit_risk_note', label: 'Fit Assessment', met: !!signal.fit_risk_note },
+  ] as const
+  const gateMetCount = gateCriteria.filter((c) => c.met).length
+  const gateTotalCount = gateCriteria.length
 
   const canDefer = signal.status === 'under_review'
   const canFail = signal.status === 'under_review'
@@ -516,6 +532,48 @@ export function SignalDetail({ signal: initialSignal, auditLog, clientName, clie
             <p className="text-sm text-foreground">{formatDate(signal.created_at)}</p>
           </div>
         </div>
+
+        {/* Gate Readiness */}
+        {showGateReadiness && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Gate Readiness
+            </h3>
+            <div className="rounded-lg border border-border bg-card p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">
+                  {gateMetCount}/{gateTotalCount} Ready
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {Math.round((gateMetCount / gateTotalCount) * 100)}%
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all',
+                    gateMetCount === gateTotalCount ? 'bg-green-500' : 'bg-yellow-500',
+                  )}
+                  style={{ width: `${(gateMetCount / gateTotalCount) * 100}%` }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                {gateCriteria.map((c) => (
+                  <div key={c.key} className="flex items-center gap-2">
+                    {c.met ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className={cn('text-sm', c.met ? 'text-foreground' : 'text-muted-foreground')}>
+                      {c.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="space-y-3">
