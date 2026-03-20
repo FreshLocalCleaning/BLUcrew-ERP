@@ -103,6 +103,19 @@ export const projectSignalStateMachine: StateMachineDef<ProjectSignalState> = {
       label: 'Reopen for Review',
     },
 
+    // --- From Passed (leadership revert only) ---
+    {
+      fromStates: ['passed'],
+      toState: 'under_review',
+      requiredFields: [],
+      requiredRoles: ['leadership_system_admin'],
+      sideEffects: ['log_gate_revert'],
+      blockers: [],
+      requiresApproval: false,
+      requiresReason: true,
+      label: 'Revert to Under Review',
+    },
+
     // --- From Failed (leadership override only) ---
     {
       fromStates: ['failed'],

@@ -366,6 +366,69 @@ export interface ProjectSignal extends BaseEntity {
 }
 
 // ---------------------------------------------------------------------------
+// US States (BLU Crew operating states listed first)
+// ---------------------------------------------------------------------------
+
+export const US_STATES = [
+  'TX', 'FL', 'OK', 'LA', 'MN', 'MO', 'NM',
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'GA', 'HI', 'ID', 'IL',
+  'IN', 'IA', 'KS', 'KY', 'ME', 'MD', 'MA', 'MI', 'MS', 'MT', 'NE', 'NV',
+  'NH', 'NJ', 'NY', 'NC', 'ND', 'OH', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN',
+  'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
+] as const
+export type USState = (typeof US_STATES)[number]
+
+export const US_STATE_LABELS: Record<USState, string> = {
+  TX: 'Texas', FL: 'Florida', OK: 'Oklahoma', LA: 'Louisiana',
+  MN: 'Minnesota', MO: 'Missouri', NM: 'New Mexico',
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas',
+  CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware',
+  GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois',
+  IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky',
+  ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan',
+  MS: 'Mississippi', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada',
+  NH: 'New Hampshire', NJ: 'New Jersey', NY: 'New York', NC: 'North Carolina',
+  ND: 'North Dakota', OH: 'Ohio', OR: 'Oregon', PA: 'Pennsylvania',
+  RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee',
+  UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington',
+  WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia',
+}
+
+// ---------------------------------------------------------------------------
+// Pursuit Milestones
+// ---------------------------------------------------------------------------
+
+export const MILESTONE_STATUSES = ['upcoming', 'complete', 'na'] as const
+export type MilestoneStatus = (typeof MILESTONE_STATUSES)[number]
+
+export interface PursuitMilestone {
+  name: string
+  date: string | null
+  status: MilestoneStatus
+  notes: string | null
+  is_default: boolean
+}
+
+export const DEFAULT_MILESTONE_NAMES = [
+  'Projected Substantial Completion',
+  'Target Owner Walk',
+  'Target Opening',
+  'Equipment Set Date',
+  'Punch Walk',
+  'Health Inspection',
+] as const
+
+export function createDefaultMilestones(): PursuitMilestone[] {
+  return DEFAULT_MILESTONE_NAMES.map((name) => ({
+    name,
+    date: null,
+    status: 'upcoming' as MilestoneStatus,
+    notes: null,
+    is_default: true,
+  }))
+}
+
+// ---------------------------------------------------------------------------
 // Pursuit enums (CORE-02 Project Pursuit Qualification)
 // ---------------------------------------------------------------------------
 
@@ -451,18 +514,22 @@ export interface Pursuit extends BaseEntity {
   client_type?: PursuitClientType
   /** Build / project type */
   build_type?: PursuitBuildType
-  /** Location / address */
+  /** Location / city address */
   location?: string
+  /** US state abbreviation */
+  us_state?: USState
   /** Approximate square footage */
   approx_sqft?: number
   /** Current pursuit stage */
   stage: PursuitStage
-  /** Projected substantial completion date (ISO string) */
+  /** Projected substantial completion date (ISO string) — legacy, use milestones */
   projected_substantial_completion?: string
-  /** Target owner walk date (ISO string) */
+  /** Target owner walk date (ISO string) — legacy, use milestones */
   target_owner_walk?: string
-  /** Target opening date (ISO string) */
+  /** Target opening date (ISO string) — legacy, use milestones */
   target_opening?: string
+  /** Flexible milestone dates for project-specific events */
+  milestones?: PursuitMilestone[]
   /** General notes */
   notes?: string
   /** BD owner user ID */

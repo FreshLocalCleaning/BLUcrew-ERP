@@ -139,6 +139,17 @@ export async function transitionProjectSignalAction(
     changes.gate_decision_date = new Date().toISOString()
   }
 
+  // Revert from passed back to under_review: reset gate outcome and unlink pursuit
+  if (signal.status === 'passed' && target_state === 'under_review') {
+    changes.gate_outcome = 'pending'
+    changes.gate_decision_by = null
+    changes.gate_decision_date = null
+    // Unlink pursuit if one was created (pursuit itself is NOT deleted)
+    if (signal.created_pursuit_id) {
+      changes.created_pursuit_id = undefined
+    }
+  }
+
   const updated = signalDb.updateProjectSignal(
     signal_id,
     changes,

@@ -4,6 +4,8 @@ import {
   PURSUIT_SIGNAL_TYPES,
   PURSUIT_CLIENT_TYPES,
   PURSUIT_BUILD_TYPES,
+  US_STATES,
+  MILESTONE_STATUSES,
 } from '@/types/commercial'
 
 // ---------------------------------------------------------------------------
@@ -14,6 +16,15 @@ export const PursuitSignalTypeSchema = z.enum(PURSUIT_SIGNAL_TYPES)
 export const PursuitClientTypeSchema = z.enum(PURSUIT_CLIENT_TYPES)
 export const PursuitBuildTypeSchema = z.enum(PURSUIT_BUILD_TYPES)
 export const PursuitStageEnum = z.enum(PURSUIT_STAGES as unknown as [string, ...string[]])
+export const USStateSchema = z.enum(US_STATES)
+
+export const pursuitMilestoneSchema = z.object({
+  name: z.string().min(1).max(200),
+  date: z.string().nullable(),
+  status: z.enum(MILESTONE_STATUSES),
+  notes: z.string().max(2000).nullable(),
+  is_default: z.boolean(),
+})
 
 // ---------------------------------------------------------------------------
 // Create Schema
@@ -33,10 +44,12 @@ export const createPursuitSchema = z.object({
   client_type: PursuitClientTypeSchema.optional(),
   build_type: PursuitBuildTypeSchema.optional(),
   location: z.string().max(500).optional(),
+  us_state: USStateSchema.optional(),
   approx_sqft: z.number().int().positive().optional(),
   projected_substantial_completion: z.string().optional(),
   target_owner_walk: z.string().optional(),
   target_opening: z.string().optional(),
+  milestones: z.array(pursuitMilestoneSchema).optional(),
   next_action: z.string().max(500).optional(),
   next_action_date: z.string().optional(),
   notes: z.string().max(5000).optional(),
