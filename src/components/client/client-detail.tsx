@@ -8,14 +8,20 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { CLIENT_STATE_LABELS, type ClientState } from '@/lib/state-machines/client'
 import { clientStateMachine } from '@/lib/state-machines/client'
 import { getAvailableTransitions } from '@/lib/state-machines/engine'
-import { transitionClientAction } from '@/actions/client'
+import { transitionClientAction, updateClientAction } from '@/actions/client'
 import {
   CLIENT_TIER_LABELS,
   CLIENT_MARKET_LABELS,
   CLIENT_VERTICAL_LABELS,
   CLIENT_RELATIONSHIP_LABELS,
+  CLIENT_VERTICALS,
+  CLIENT_MARKETS,
+  CLIENT_RELATIONSHIP_STRENGTHS,
   type Client,
   type ClientTier,
+  type ClientVertical,
+  type ClientMarket,
+  type ClientRelationshipStrength,
 } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
@@ -43,6 +49,7 @@ import {
   Mail,
   Trophy,
   Briefcase,
+  Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -72,6 +79,17 @@ export function ClientDetail({
   const router = useRouter()
   const [client, setClient] = useState(initialClient)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // Edit form state
+  const [editName, setEditName] = useState(client.name)
+  const [editVertical, setEditVertical] = useState(client.vertical ?? '')
+  const [editMarket, setEditMarket] = useState(client.market ?? '')
+  const [editRelationship, setEditRelationship] = useState(client.relationship_strength ?? '')
+  const [editNextAction, setEditNextAction] = useState(client.next_action ?? '')
+  const [editNextActionDate, setEditNextActionDate] = useState(client.next_action_date ?? '')
+  const [editNotes, setEditNotes] = useState(client.notes ?? '')
 
   // Placeholder actor roles — will come from Entra session
   const actorRoles: Role[] = ['commercial_bd']
@@ -98,6 +116,43 @@ export function ClientDetail({
       toast.error(result.error ?? 'Failed to change status')
     }
   }
+
+  function startEditing() {
+    setEditName(client.name)
+    setEditVertical(client.vertical ?? '')
+    setEditMarket(client.market ?? '')
+    setEditRelationship(client.relationship_strength ?? '')
+    setEditNextAction(client.next_action ?? '')
+    setEditNextActionDate(client.next_action_date ?? '')
+    setEditNotes(client.notes ?? '')
+    setEditing(true)
+  }
+
+  async function handleSaveEdit() {
+    setSaving(true)
+    const result = await updateClientAction({
+      id: client.id,
+      name: editName,
+      vertical: editVertical || undefined,
+      market: editMarket || undefined,
+      relationship_strength: editRelationship || undefined,
+      next_action: editNextAction || undefined,
+      next_action_date: editNextActionDate || undefined,
+      notes: editNotes || undefined,
+    })
+    setSaving(false)
+
+    if (result.success && result.data) {
+      setClient(result.data)
+      setEditing(false)
+      toast.success('Client updated')
+      router.refresh()
+    } else {
+      toast.error(result.error ?? 'Failed to save changes')
+    }
+  }
+
+  const INPUT_CLS = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring'
 
   const dueDate = client.next_action_date
     ? new Date(client.next_action_date).toLocaleDateString('en-US', {
@@ -169,61 +224,122 @@ export function ClientDetail({
 
         {/* Client Details Card */}
         <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Client Details</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <DetailItem icon={Building2} label="Company" value={client.name} />
-            <DetailItem
-              icon={FileText}
-              label="Reference ID"
-              value={client.reference_id}
-              mono
-            />
-            <div className="flex items-start gap-3">
-              <Target className="mt-0.5 h-4 w-4 text-muted-foreground" />
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">Client Details</h2>
+            {editing ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditing(false)}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={startEditing}
+                className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </button>
+            )}
+          </div>
+
+          {editing ? (
+            <div className="space-y-4">
               <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Tier (auto-calculated)</p>
-                <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', tierColors[computedTier])}>
-                  {CLIENT_TIER_LABELS[computedTier]}
-                </span>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Based on {contacts.length} contact{contacts.length !== 1 ? 's' : ''} across layers
-                </p>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Company Name</label>
+                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className={INPUT_CLS} />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Vertical</label>
+                  <select value={editVertical} onChange={(e) => setEditVertical(e.target.value)} className={INPUT_CLS}>
+                    <option value="">Select vertical…</option>
+                    {CLIENT_VERTICALS.map(v => (
+                      <option key={v} value={v}>{CLIENT_VERTICAL_LABELS[v]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Market</label>
+                  <select value={editMarket} onChange={(e) => setEditMarket(e.target.value)} className={INPUT_CLS}>
+                    <option value="">Select market…</option>
+                    {CLIENT_MARKETS.map(m => (
+                      <option key={m} value={m}>{CLIENT_MARKET_LABELS[m]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Relationship Strength</label>
+                  <select value={editRelationship} onChange={(e) => setEditRelationship(e.target.value)} className={INPUT_CLS}>
+                    <option value="">Select strength…</option>
+                    {CLIENT_RELATIONSHIP_STRENGTHS.map(r => (
+                      <option key={r} value={r}>{CLIENT_RELATIONSHIP_LABELS[r]}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Next Action</label>
+                  <input type="text" value={editNextAction} onChange={(e) => setEditNextAction(e.target.value)} placeholder="e.g. Schedule intro call" className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Next Action Date</label>
+                  <input type="date" value={editNextActionDate} onChange={(e) => setEditNextActionDate(e.target.value)} className={INPUT_CLS} />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Notes</label>
+                <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3} className={INPUT_CLS} />
               </div>
             </div>
-            <DetailItem
-              icon={Building2}
-              label="Vertical"
-              value={client.vertical ? CLIENT_VERTICAL_LABELS[client.vertical] : '—'}
-            />
-            <DetailItem
-              icon={MapPin}
-              label="Market"
-              value={client.market ? CLIENT_MARKET_LABELS[client.market] : '—'}
-            />
-            <DetailItem
-              icon={Handshake}
-              label="Relationship"
-              value={
-                client.relationship_strength
-                  ? CLIENT_RELATIONSHIP_LABELS[client.relationship_strength]
-                  : '—'
-              }
-            />
-            <DetailItem
-              icon={Clock}
-              label="Created"
-              value={new Date(client.created_at).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            />
-          </div>
-          {client.notes && (
-            <div className="mt-4 border-t border-border pt-4">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Notes</p>
-              <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{client.notes}</p>
-            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <DetailItem icon={Building2} label="Company" value={client.name} />
+                <DetailItem icon={FileText} label="Reference ID" value={client.reference_id} mono />
+                <div className="flex items-start gap-3">
+                  <Target className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Tier (auto-calculated)</p>
+                    <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', tierColors[computedTier])}>
+                      {CLIENT_TIER_LABELS[computedTier]}
+                    </span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Based on {contacts.length} contact{contacts.length !== 1 ? 's' : ''} across layers
+                    </p>
+                  </div>
+                </div>
+                <DetailItem icon={Building2} label="Vertical" value={client.vertical ? CLIENT_VERTICAL_LABELS[client.vertical] : '—'} />
+                <DetailItem icon={MapPin} label="Market" value={client.market ? CLIENT_MARKET_LABELS[client.market] : '—'} />
+                <DetailItem
+                  icon={Handshake}
+                  label="Relationship"
+                  value={client.relationship_strength ? CLIENT_RELATIONSHIP_LABELS[client.relationship_strength] : '—'}
+                />
+                <DetailItem
+                  icon={Clock}
+                  label="Created"
+                  value={new Date(client.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                />
+              </div>
+              {client.notes && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Notes</p>
+                  <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{client.notes}</p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
