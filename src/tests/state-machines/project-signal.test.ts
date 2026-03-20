@@ -247,9 +247,10 @@ describe('Project Signal State Machine — Available Transitions', () => {
     expect(transitions[0]?.toState).toBe('under_review')
   })
 
-  it('passed has 0 transitions (lives as linked history)', () => {
+  it('passed allows revert to under_review for leadership', () => {
     const transitions = getAvailableTransitions(projectSignalStateMachine, 'passed', ['leadership_system_admin'])
-    expect(transitions).toHaveLength(0)
+    expect(transitions).toHaveLength(1)
+    expect(transitions[0]!.toState).toBe('under_review')
   })
 
   it('readonly_stakeholder gets 0 transitions from any state', () => {

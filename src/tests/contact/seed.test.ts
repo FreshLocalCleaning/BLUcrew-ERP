@@ -73,12 +73,12 @@ describe('Contact Seed Data', () => {
     expect(jake!.touch_count).toBe(31)
   })
 
-  it('David Park is precon layer at Balfour Beatty', () => {
+  it('David Park is PM/Super layer at Balfour Beatty', () => {
     seedClients()
     seedContacts()
     const david = listContacts().find((c) => c.last_name === 'Park')
     expect(david).toBeDefined()
-    expect(david!.layer).toBe('estimator_precon')
+    expect(david!.layer).toBe('pm_super_field')
     expect(david!.client_name).toBe('Balfour Beatty')
     expect(david!.relationship_strength).toBe('developing')
   })
