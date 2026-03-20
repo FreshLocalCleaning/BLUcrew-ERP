@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { updateContactAction, logTouchAction } from '@/actions/contact'
+import { updateContactAction } from '@/actions/contact'
+import { LogTouchModal } from './log-touch-modal'
 import {
   CONTACT_LAYER_LABELS,
   CONTACT_INFLUENCE_LABELS,
@@ -147,11 +148,6 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
   const router = useRouter()
   const [contact, setContact] = useState(initial)
   const [touchModalOpen, setTouchModalOpen] = useState(false)
-  const [touchNotes, setTouchNotes] = useState('')
-  const [touchNextStep, setTouchNextStep] = useState('')
-  const [touchNextStepDueDate, setTouchNextStepDueDate] = useState('')
-  const [touchType, setTouchType] = useState('')
-  const [submittingTouch, setSubmittingTouch] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState({
     first_name: contact.first_name,
@@ -183,30 +179,6 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
   const [championModalOpen, setChampionModalOpen] = useState(false)
   const [championReason, setChampionReason] = useState('')
   const [savingChampion, setSavingChampion] = useState(false)
-
-  async function handleLogTouch() {
-    setSubmittingTouch(true)
-    const result = await logTouchAction({
-      contact_id: contact.id,
-      notes: touchNotes || undefined,
-      next_step: touchNextStep || undefined,
-      next_step_due_date: touchNextStepDueDate || undefined,
-      touch_type: touchType || undefined,
-    })
-    if (result.success && result.data) {
-      setContact(result.data)
-      toast.success(`Touch #${result.data.touch_count} logged`)
-      setTouchModalOpen(false)
-      setTouchNotes('')
-      setTouchNextStep('')
-      setTouchNextStepDueDate('')
-      setTouchType('')
-      router.refresh()
-    } else {
-      toast.error(result.error ?? 'Failed to log touch')
-    }
-    setSubmittingTouch(false)
-  }
 
   async function handleSaveEdit() {
     setSavingEdit(true)
@@ -915,101 +887,14 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
 
       {/* Log Touch Modal */}
       {touchModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setTouchModalOpen(false)}
-          />
-          <div className="relative w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-foreground">Log Touch</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Record an interaction with {contact.first_name} {contact.last_name}.
-              Touch #{contact.touch_count + 1}.
-            </p>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="touch-type" className="block text-sm font-medium text-foreground">
-                  Type of Touch
-                </label>
-                <select
-                  id="touch-type"
-                  value={touchType}
-                  onChange={(e) => setTouchType(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Select type...</option>
-                  <option value="call">Phone Call</option>
-                  <option value="email">Email</option>
-                  <option value="text">Text Message</option>
-                  <option value="in_person">In Person</option>
-                  <option value="linkedin">LinkedIn</option>
-                  <option value="event">Event</option>
-                  <option value="trailer_visit">Trailer Visit</option>
-                  <option value="luncheon">Luncheon</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="touch-notes" className="block text-sm font-medium text-foreground">
-                  Summary / Notes
-                </label>
-                <textarea
-                  id="touch-notes"
-                  value={touchNotes}
-                  onChange={(e) => setTouchNotes(e.target.value)}
-                  rows={3}
-                  placeholder="e.g. Discussed Lewisville project timeline..."
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="touch-next-step" className="block text-sm font-medium text-foreground">
-                  Next Step
-                </label>
-                <input
-                  id="touch-next-step"
-                  type="text"
-                  value={touchNextStep}
-                  onChange={(e) => setTouchNextStep(e.target.value)}
-                  placeholder="e.g. Follow up on pricing..."
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="touch-due-date" className="block text-sm font-medium text-foreground">
-                  Next Step Due Date
-                </label>
-                <input
-                  id="touch-due-date"
-                  type="date"
-                  value={touchNextStepDueDate}
-                  onChange={(e) => setTouchNextStepDueDate(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setTouchModalOpen(false)
-                  setTouchNotes('')
-                  setTouchNextStep('')
-                  setTouchNextStepDueDate('')
-                  setTouchType('')
-                }}
-                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLogTouch}
-                disabled={submittingTouch}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {submittingTouch ? 'Logging...' : 'Log Touch'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <LogTouchModal
+          contact={contact}
+          onClose={() => setTouchModalOpen(false)}
+          onSaved={(updated) => {
+            setContact(updated)
+            router.refresh()
+          }}
+        />
       )}
 
       {/* BLU Champion Modal */}
