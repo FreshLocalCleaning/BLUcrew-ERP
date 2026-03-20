@@ -25,6 +25,7 @@ interface NavItem {
   label: string
   href: string
   icon: React.ComponentType<{ className?: string }>
+  badge?: number
 }
 
 interface NavSection {
@@ -79,8 +80,22 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  approvalCount?: number
+}
+
+export function Sidebar({ approvalCount }: SidebarProps) {
   const pathname = usePathname()
+
+  // Inject badge count into the Approvals nav item
+  const sections = NAV_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.map(item =>
+      item.href === '/approvals' && approvalCount
+        ? { ...item, badge: approvalCount }
+        : item
+    ),
+  }))
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-sidebar">
@@ -102,7 +117,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-4">
-          {NAV_SECTIONS.map((section, si) => (
+          {sections.map((section, si) => (
             <div key={si}>
               {section.title && (
                 <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -128,7 +143,12 @@ export function Sidebar() {
                         )}
                       >
                         <Icon className="h-4 w-4" />
-                        {item.label}
+                        <span className="flex-1">{item.label}</span>
+                        {item.badge != null && item.badge > 0 && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     </li>
                   )
