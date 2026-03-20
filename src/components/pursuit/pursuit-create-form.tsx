@@ -12,13 +12,43 @@ import {
   PURSUIT_CLIENT_TYPE_LABELS,
   PURSUIT_BUILD_TYPES,
   PURSUIT_BUILD_TYPE_LABELS,
+  US_STATES,
+  US_STATE_LABELS,
+  MILESTONE_STATUSES,
   PROJECT_SIGNAL_TYPE_LABELS,
+  createDefaultMilestones,
   type Client,
   type Contact,
   type ProjectSignal,
+  type PursuitMilestone,
+  type MilestoneStatus,
 } from '@/types/commercial'
 import { toast } from 'sonner'
 import { useState, useMemo } from 'react'
+import { Plus, Trash2, CheckCircle2, Clock, Minus } from 'lucide-react'
+import type { ProjectSignalType, PursuitSignalType } from '@/types/commercial'
+
+/** Best-effort mapping from ProjectSignalType → PursuitSignalType */
+function mapSignalTypeToPursuitType(signalType: ProjectSignalType): PursuitSignalType | undefined {
+  const mapping: Partial<Record<ProjectSignalType, PursuitSignalType>> = {
+    referral: 'referral',
+    direct_contact: 'outreach',
+    event_network: 'event',
+    repeat_client: 'repeat_client',
+    online_inquiry: 'inbound',
+  }
+  return mapping[signalType]
+}
+
+/** Build combined notes from signal fields so nothing is lost */
+function buildNotesFromSignal(signal: { source_evidence: string; timing_signal: string | null; fit_risk_note: string | null; notes?: string }): string {
+  const parts: string[] = []
+  if (signal.source_evidence) parts.push(`[Source Evidence]\n${signal.source_evidence}`)
+  if (signal.timing_signal) parts.push(`[Timing Signal]\n${signal.timing_signal}`)
+  if (signal.fit_risk_note) parts.push(`[Fit/Risk Note]\n${signal.fit_risk_note}`)
+  if (signal.notes) parts.push(`[Signal Notes]\n${signal.notes}`)
+  return parts.join('\n\n')
+}
 
 interface PursuitCreateFormProps {
   clients: Client[]
@@ -27,6 +57,9 @@ interface PursuitCreateFormProps {
   preselectedClientId?: string
   preselectedSignalId?: string
 }
+
+const INPUT_CLS =
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring'
 
 export function PursuitCreateForm({ clients, contacts, passedSignals, preselectedClientId, preselectedSignalId }: PursuitCreateFormProps) {
   const router = useRouter()
@@ -39,6 +72,14 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
   const preClient = effectiveClientId ? clients.find(c => c.id === effectiveClientId) : undefined
   const [selectedClientId, setSelectedClientId] = useState(effectiveClientId)
   const [selectedSignalId, setSelectedSignalId] = useState(preselectedSignalId ?? '')
+
+  // Milestone state
+  const [milestones, setMilestones] = useState<PursuitMilestone[]>(createDefaultMilestones())
+  const [newMilestoneName, setNewMilestoneName] = useState('')
+
+  // Pre-fill signal type mapping and combined notes from signal
+  const preSignalType = preSignal ? mapSignalTypeToPursuitType(preSignal.signal_type) : undefined
+  const preNotes = preSignal ? buildNotesFromSignal(preSignal) : ''
 
   const {
     register,
@@ -54,7 +95,10 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
       client_name: preClient?.name ?? '',
       primary_contact_id: preSignal?.linked_contact_id ?? '',
       primary_contact_name: preSignal?.linked_contact_name ?? '',
-      notes: '',
+      signal_type: preSignalType,
+      next_action: preSignal?.next_action ?? '',
+      next_action_date: preSignal?.next_action_date ?? '',
+      notes: preNotes,
     },
   })
 
@@ -89,6 +133,26 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
         setValue('primary_contact_id', signal.linked_contact_id)
         setValue('primary_contact_name', signal.linked_contact_name ?? '')
       }
+
+      // Map signal type → pursuit signal type
+      const mappedType = mapSignalTypeToPursuitType(signal.signal_type)
+      if (mappedType) {
+        setValue('signal_type', mappedType)
+      }
+
+      // Carry over next action
+      if (signal.next_action) {
+        setValue('next_action', signal.next_action)
+      }
+      if (signal.next_action_date) {
+        setValue('next_action_date', signal.next_action_date)
+      }
+
+      // Combine signal fields into notes so nothing is lost
+      const combinedNotes = buildNotesFromSignal(signal)
+      if (combinedNotes) {
+        setValue('notes', combinedNotes)
+      }
     }
   }
 
@@ -112,10 +176,43 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
     setValue('primary_contact_name', contact ? `${contact.first_name} ${contact.last_name}` : '')
   }
 
+  function updateMilestone(index: number, field: keyof PursuitMilestone, value: string | null | boolean) {
+    setMilestones((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index]!, [field]: value }
+      return next
+    })
+  }
+
+  function addCustomMilestone() {
+    if (!newMilestoneName.trim()) return
+    setMilestones((prev) => [
+      ...prev,
+      { name: newMilestoneName.trim(), date: null, status: 'upcoming', notes: null, is_default: false },
+    ])
+    setNewMilestoneName('')
+  }
+
+  function removeCustomMilestone(index: number) {
+    setMilestones((prev) => prev.filter((_, i) => i !== index))
+  }
+
   async function onSubmit(data: CreatePursuitInput) {
     setSubmitting(true)
     try {
-      const result = await createPursuitAction(data as Record<string, unknown>)
+      // Map milestone dates back to legacy fields for backward compat
+      const msMap: Record<string, string | undefined> = {}
+      for (const ms of milestones) {
+        if (ms.name === 'Projected Substantial Completion' && ms.date) msMap.projected_substantial_completion = ms.date
+        if (ms.name === 'Target Owner Walk' && ms.date) msMap.target_owner_walk = ms.date
+        if (ms.name === 'Target Opening' && ms.date) msMap.target_opening = ms.date
+      }
+
+      const result = await createPursuitAction({
+        ...data,
+        ...msMap,
+        milestones,
+      } as Record<string, unknown>)
       if (result.success && result.data) {
         toast.success(`Pursuit "${result.data.project_name}" created (${result.data.reference_id})`)
         router.push(`/pursuits/${result.data.id}`)
@@ -145,7 +242,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
           <select
             onChange={handleSignalChange}
             value={selectedSignalId}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className={INPUT_CLS}
           >
             <option value="">Select a passed signal...</option>
             {availableSignals.map((s) => (
@@ -180,7 +277,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
               {...register('project_name')}
               type="text"
               placeholder="e.g. Crunch Fitness Lewisville"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className={INPUT_CLS}
             />
             {errors.project_name && (
               <p className="mt-1 text-xs text-red-400">{errors.project_name.message}</p>
@@ -195,7 +292,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
             <select
               onChange={handleClientChange}
               value={selectedClientId}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className={INPUT_CLS}
             >
               <option value="">Select client...</option>
               {clients.map((c) => (
@@ -219,7 +316,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
             <select
               onChange={handleContactChange}
               disabled={!selectedClientId}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              className={`${INPUT_CLS} disabled:opacity-50`}
             >
               <option value="">
                 {selectedClientId ? 'Select contact...' : 'Select a client first'}
@@ -241,7 +338,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
             </label>
             <select
               {...register('signal_type')}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className={INPUT_CLS}
             >
               <option value="">Select signal type...</option>
               {PURSUIT_SIGNAL_TYPES.map((t) => (
@@ -259,7 +356,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
             </label>
             <select
               {...register('client_type')}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className={INPUT_CLS}
             >
               <option value="">Select client type...</option>
               {PURSUIT_CLIENT_TYPES.map((t) => (
@@ -277,7 +374,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
             </label>
             <select
               {...register('build_type')}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className={INPUT_CLS}
             >
               <option value="">Select build type...</option>
               {PURSUIT_BUILD_TYPES.map((t) => (
@@ -288,7 +385,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
             </select>
           </div>
 
-          {/* Location */}
+          {/* Location (city/address) */}
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">
               Location
@@ -296,9 +393,27 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
             <input
               {...register('location')}
               type="text"
-              placeholder="e.g. Lewisville, TX"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="e.g. Lewisville"
+              className={INPUT_CLS}
             />
+          </div>
+
+          {/* State */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-foreground">
+              State
+            </label>
+            <select
+              {...register('us_state')}
+              className={INPUT_CLS}
+            >
+              <option value="">Select state...</option>
+              {US_STATES.map((st) => (
+                <option key={st} value={st}>
+                  {US_STATE_LABELS[st]} ({st})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Approx Square Footage */}
@@ -310,28 +425,90 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
               {...register('approx_sqft', { valueAsNumber: true })}
               type="number"
               placeholder="e.g. 32500"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className={INPUT_CLS}
             />
           </div>
         </div>
       </div>
 
-      {/* Timeline */}
+      {/* Milestones Timeline */}
       <div className="space-y-6 rounded-lg border border-border bg-card p-6">
-        <h2 className="text-lg font-semibold text-foreground">Timeline</h2>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Projected Substantial Completion</label>
-            <input {...register('projected_substantial_completion')} type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Target Owner Walk</label>
-            <input {...register('target_owner_walk')} type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Target Opening</label>
-            <input {...register('target_opening')} type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Project Milestones</h2>
+          <span className="text-xs text-muted-foreground">{milestones.length} milestones</span>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Set dates and track key project milestones. Default milestones are always shown — add custom ones for project-specific events.
+        </p>
+
+        <div className="space-y-3">
+          {milestones.map((ms, idx) => (
+            <div key={idx} className="flex items-start gap-3 rounded-md border border-border p-3">
+              <div className="mt-1">
+                <MilestoneStatusIcon status={ms.status} />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{ms.name}</span>
+                  {!ms.is_default && (
+                    <button
+                      type="button"
+                      onClick={() => removeCustomMilestone(idx)}
+                      className="text-red-400 hover:text-red-300"
+                      title="Remove milestone"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <input
+                    type="date"
+                    value={ms.date ?? ''}
+                    onChange={(e) => updateMilestone(idx, 'date', e.target.value || null)}
+                    className={INPUT_CLS}
+                  />
+                  <select
+                    value={ms.status}
+                    onChange={(e) => updateMilestone(idx, 'status', e.target.value)}
+                    className={INPUT_CLS}
+                  >
+                    <option value="upcoming">Upcoming</option>
+                    <option value="complete">Complete</option>
+                    <option value="na">N/A</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={ms.notes ?? ''}
+                    onChange={(e) => updateMilestone(idx, 'notes', e.target.value || null)}
+                    placeholder="Notes…"
+                    className={INPUT_CLS}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Add Custom Milestone */}
+        <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-3">
+          <Plus className="h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={newMilestoneName}
+            onChange={(e) => setNewMilestoneName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomMilestone() } }}
+            placeholder="Add custom milestone (e.g. Fire Marshal Inspection)…"
+            className={`${INPUT_CLS} flex-1`}
+          />
+          <button
+            type="button"
+            onClick={addCustomMilestone}
+            disabled={!newMilestoneName.trim()}
+            className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Add
+          </button>
         </div>
       </div>
 
@@ -341,15 +518,15 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Next Action</label>
-            <input {...register('next_action')} type="text" placeholder="e.g. Schedule site walk with GC" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input {...register('next_action')} type="text" placeholder="e.g. Schedule site walk with GC" className={INPUT_CLS} />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-foreground">Next Action Date</label>
-            <input {...register('next_action_date')} type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input {...register('next_action_date')} type="date" className={INPUT_CLS} />
           </div>
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
-            <textarea {...register('notes')} rows={4} placeholder="General notes about this pursuit..." className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <textarea {...register('notes')} rows={4} placeholder="General notes about this pursuit..." className={INPUT_CLS} />
           </div>
         </div>
       </div>
@@ -365,4 +542,10 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
       </div>
     </form>
   )
+}
+
+function MilestoneStatusIcon({ status }: { status: MilestoneStatus }) {
+  if (status === 'complete') return <CheckCircle2 className="h-4 w-4 text-green-400" />
+  if (status === 'na') return <Minus className="h-4 w-4 text-muted-foreground" />
+  return <Clock className="h-4 w-4 text-amber-400" />
 }

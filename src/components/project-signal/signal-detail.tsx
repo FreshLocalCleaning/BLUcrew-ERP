@@ -78,6 +78,8 @@ export function SignalDetail({ signal: initialSignal, auditLog, clientName, clie
   const [deferReason, setDeferReason] = useState('')
   const [failModalOpen, setFailModalOpen] = useState(false)
   const [failReason, setFailReason] = useState('')
+  const [revertModalOpen, setRevertModalOpen] = useState(false)
+  const [revertReason, setRevertReason] = useState('')
 
   // Edit form state
   const [editProjectIdentity, setEditProjectIdentity] = useState(signal.project_identity)
@@ -106,6 +108,7 @@ export function SignalDetail({ signal: initialSignal, auditLog, clientName, clie
   const canDefer = signal.status === 'under_review'
   const canFail = signal.status === 'under_review'
   const showCreatePursuit = signal.status === 'passed' && signal.gate_outcome === 'passed' && !signal.created_pursuit_id
+  const canRevertGate = signal.status === 'passed' && signal.gate_outcome === 'passed'
 
   const filteredContacts = contacts.filter((c) => c.client_id === editClientId)
 
@@ -178,6 +181,25 @@ export function SignalDetail({ signal: initialSignal, auditLog, clientName, clie
       router.refresh()
     } else {
       toast.error(result.error ?? 'Failed to update signal')
+    }
+  }
+
+  async function handleRevert() {
+    if (!revertReason.trim()) return
+    const result = await transitionProjectSignalAction({
+      signal_id: signal.id,
+      target_state: 'under_review',
+      reason: revertReason,
+      approval_granted: true,
+    })
+    setRevertModalOpen(false)
+    setRevertReason('')
+    if (result.success && result.data) {
+      setSignal(result.data)
+      toast.success('Gate reverted to Under Review')
+      router.refresh()
+    } else {
+      toast.error(result.error ?? 'Failed to revert gate')
     }
   }
 
@@ -523,6 +545,17 @@ export function SignalDetail({ signal: initialSignal, auditLog, clientName, clie
             </Link>
           )}
 
+          {/* Revert Gate — leadership only, shown when passed */}
+          {canRevertGate && (
+            <button
+              onClick={() => setRevertModalOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg bg-yellow-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-yellow-600"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Revert to Under Review
+            </button>
+          )}
+
           {/* Defer — yellow */}
           {canDefer && (
             <button
@@ -652,6 +685,60 @@ export function SignalDetail({ signal: initialSignal, auditLog, clientName, clie
                 )}
               >
                 Confirm Fail
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revert Gate Modal */}
+      {revertModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+            <h2 className="mb-2 text-lg font-semibold text-foreground">Revert to Under Review</h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              This will revert the gate outcome back to Pending and return the signal to Under Review.
+            </p>
+            {signal.created_pursuit_id && (
+              <div className="mb-4 rounded-md border border-amber-500/50 bg-amber-900/20 p-3">
+                <p className="text-sm font-medium text-amber-300">Warning</p>
+                <p className="mt-1 text-xs text-amber-200">
+                  A pursuit was already created from this signal. Reverting will NOT delete
+                  the pursuit but will unlink it from this signal.
+                </p>
+                <Link
+                  href={`/pursuits/${signal.created_pursuit_id}`}
+                  className="mt-1 inline-block text-xs text-amber-300 hover:underline"
+                >
+                  View linked pursuit →
+                </Link>
+              </div>
+            )}
+            <textarea
+              value={revertReason}
+              onChange={(e) => setRevertReason(e.target.value)}
+              placeholder="Reason for reverting (e.g. Passed in error, Need more info)…"
+              rows={3}
+              className="mb-4 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setRevertModalOpen(false); setRevertReason('') }}
+                className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRevert}
+                disabled={!revertReason.trim()}
+                className={cn(
+                  'rounded-md px-4 py-2 text-sm font-medium',
+                  revertReason.trim()
+                    ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                    : 'cursor-not-allowed bg-muted text-muted-foreground',
+                )}
+              >
+                Confirm Revert
               </button>
             </div>
           </div>
