@@ -1010,3 +1010,64 @@ export interface ExpansionTask extends BaseEntity {
   /** Completion outcome */
   completion_outcome: string | null
 }
+
+// ---------------------------------------------------------------------------
+// Site Walk Event (ERP-12 entity #5)
+// ---------------------------------------------------------------------------
+
+export const SITE_WALK_STATUSES = ['scheduled', 'completed', 'cancelled'] as const
+export type SiteWalkStatus = (typeof SITE_WALK_STATUSES)[number]
+
+export const SITE_WALK_STATUS_LABELS: Record<SiteWalkStatus, string> = {
+  scheduled: 'Scheduled',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+
+export interface SiteWalkEvent extends BaseEntity {
+  /** Human-readable reference ID: SWE-XXXX */
+  reference_id: string
+  /** Parent pursuit ID */
+  pursuit_id: string
+  /** Walk date (ISO string) */
+  walk_date: string
+  /** Walk time (e.g. "10:00 AM") */
+  walk_time: string
+  /** Walk location */
+  location: string
+  /** Attendees (free text) */
+  attendees: string
+  /** Status */
+  status: SiteWalkStatus
+  /** Notes */
+  notes: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Closeout Plan (ERP-12 entity #6)
+// ---------------------------------------------------------------------------
+
+export const CLOSEOUT_PLAN_STATUSES = ['draft', 'submitted', 'approved', 'returned'] as const
+export type CloseoutPlanStatus = (typeof CLOSEOUT_PLAN_STATUSES)[number]
+
+export const CLOSEOUT_PLAN_STATUS_LABELS: Record<CloseoutPlanStatus, string> = {
+  draft: 'Draft',
+  submitted: 'Submitted',
+  approved: 'Approved',
+  returned: 'Returned',
+}
+
+export interface CloseoutPlan extends BaseEntity {
+  /** Human-readable reference ID: COP-XXXX */
+  reference_id: string
+  /** Parent pursuit ID */
+  pursuit_id: string
+  /** Plan name */
+  plan_name: string
+  /** Description */
+  description: string
+  /** Scope summary */
+  scope_summary: string
+  /** Status */
+  status: CloseoutPlanStatus
+}

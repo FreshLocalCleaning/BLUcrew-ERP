@@ -2,9 +2,12 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import { getPursuit } from '@/lib/db/pursuits'
-import { getClient } from '@/lib/db/clients'
+import { getClient, listClients } from '@/lib/db/clients'
+import { listContacts } from '@/lib/db/contacts'
 import { getProjectSignal } from '@/lib/db/project-signals'
 import { getActiveEstimateForPursuit } from '@/lib/db/estimates'
+import { listSiteWalksByPursuit } from '@/lib/db/site-walks'
+import { listCloseoutPlansByPursuit } from '@/lib/db/closeout-plans'
 import { getAuditLog } from '@/lib/db/json-db'
 import { PursuitDetail } from '@/components/pursuit/pursuit-detail'
 import { seedClients, seedContacts, seedProjectSignals, seedPursuits, seedEstimates } from '@/lib/db/seed'
@@ -35,6 +38,11 @@ export default async function PursuitDetailPage({ params }: PursuitDetailPagePro
   const linkedEstimate = activeEstimate
     ? { id: activeEstimate.id, reference_id: activeEstimate.reference_id, status: activeEstimate.status }
     : null
+
+  const clients = listClients()
+  const contacts = listContacts()
+  const siteWalks = listSiteWalksByPursuit(id)
+  const closeoutPlans = listCloseoutPlansByPursuit(id)
 
   return (
     <div className="space-y-6">
@@ -90,7 +98,15 @@ export default async function PursuitDetailPage({ params }: PursuitDetailPagePro
       </div>
 
       {/* Detail component */}
-      <PursuitDetail pursuit={pursuit} auditLog={auditLog} linkedEstimate={linkedEstimate} />
+      <PursuitDetail
+        pursuit={pursuit}
+        auditLog={auditLog}
+        linkedEstimate={linkedEstimate}
+        clients={clients}
+        contacts={contacts}
+        siteWalks={siteWalks}
+        closeoutPlans={closeoutPlans}
+      />
     </div>
   )
 }
