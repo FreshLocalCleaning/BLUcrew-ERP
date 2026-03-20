@@ -121,6 +121,7 @@ export function MobilizationDetail({ mobilization: initial, auditLog, equipmentT
   const [saveTemplateDesc, setSaveTemplateDesc] = useState('')
   const [saveTemplateBuildTypes, setSaveTemplateBuildTypes] = useState('')
   const [savingTemplate, setSavingTemplate] = useState(false)
+  const [loadingTemplate, setLoadingTemplate] = useState(false)
 
   const actorRoles: Role[] = ['leadership_system_admin', 'pm_ops']
 
@@ -258,7 +259,8 @@ export function MobilizationDetail({ mobilization: initial, auditLog, equipmentT
   }
 
   function handleLoadTemplate(template: EquipmentTemplate) {
-    if (editEquipment.length > 0) {
+    const currentItems = editing ? editEquipment : mobilization.equipment_checklist
+    if (currentItems.length > 0) {
       setConfirmTemplateLoad(template)
     } else {
       applyTemplate(template)
@@ -266,15 +268,34 @@ export function MobilizationDetail({ mobilization: initial, auditLog, equipmentT
     setTemplateDropdownOpen(false)
   }
 
-  function applyTemplate(template: EquipmentTemplate) {
+  async function applyTemplate(template: EquipmentTemplate) {
     const items: EquipmentChecklistItem[] = template.items.map(t => ({
       item: t.item,
       status: t.default_status === 'packed' ? 'packed' : 'needed',
       notes: t.notes,
     }))
-    setEditEquipment(items)
     setConfirmTemplateLoad(null)
-    toast.success(`Loaded template: ${template.name}`)
+
+    if (editing) {
+      // In edit mode, update local state (will be saved with the main save)
+      setEditEquipment(items)
+      toast.success(`Loaded template: ${template.name}`)
+    } else {
+      // In read-only mode, save immediately to DB
+      setLoadingTemplate(true)
+      const result = await updateMobilizationFieldsAction({
+        id: mobilization.id,
+        equipment_checklist: items,
+      })
+      if (result.success && result.data) {
+        setMobilization(result.data)
+        toast.success(`Loaded template: ${template.name}`)
+        router.refresh()
+      } else {
+        toast.error(result.error ?? 'Failed to load template')
+      }
+      setLoadingTemplate(false)
+    }
   }
 
   async function handleSaveAsTemplate() {
@@ -502,33 +523,34 @@ export function MobilizationDetail({ mobilization: initial, auditLog, equipmentT
             {/* Equipment Checklist */}
             <div className="rounded-lg border border-border bg-card p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-foreground">Equipment Checklist</h2>
-                <div className="flex items-center gap-2">
-                  {/* Load Template dropdown */}
-                  {editing && equipmentTemplates.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold text-foreground">Equipment Checklist</h2>
+                  {/* Load Template dropdown — always visible when templates exist */}
+                  {!isTerminal && equipmentTemplates.length > 0 && (
                     <div className="relative">
                       <button
                         type="button"
+                        disabled={loadingTemplate}
                         onClick={() => setTemplateDropdownOpen(!templateDropdownOpen)}
-                        className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
+                        className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50 disabled:opacity-50"
                       >
                         <BookTemplate className="h-3.5 w-3.5" />
-                        Load Template
+                        {loadingTemplate ? 'Loading...' : 'Load Template'}
                         <ChevronDown className="h-3 w-3" />
                       </button>
                       {templateDropdownOpen && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setTemplateDropdownOpen(false)} />
-                          <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-md border border-border bg-card shadow-lg">
+                          <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-md border border-border bg-card shadow-lg">
                             <div className="max-h-64 overflow-y-auto p-1">
                               {equipmentTemplates.map(t => (
                                 <button
                                   key={t.id}
                                   onClick={() => handleLoadTemplate(t)}
-                                  className="flex w-full flex-col items-start rounded px-3 py-2 text-left hover:bg-muted/50"
+                                  className="flex w-full items-center justify-between rounded px-3 py-2 text-left hover:bg-muted/50"
                                 >
                                   <span className="text-sm font-medium text-foreground">{t.name}</span>
-                                  <span className="text-xs text-muted-foreground">{t.items.length} items{t.build_types.length > 0 ? ` · ${t.build_types.slice(0, 2).join(', ')}` : ''}</span>
+                                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t.items.length} items</span>
                                 </button>
                               ))}
                             </div>
@@ -537,18 +559,18 @@ export function MobilizationDetail({ mobilization: initial, auditLog, equipmentT
                       )}
                     </div>
                   )}
-                  {/* Save as Template */}
-                  {(editing ? editEquipment.length > 0 : mobilization.equipment_checklist.length > 0) && (
-                    <button
-                      type="button"
-                      onClick={() => setSaveTemplateModalOpen(true)}
-                      className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
-                    >
-                      <Save className="h-3.5 w-3.5" />
-                      Save as Template
-                    </button>
-                  )}
                 </div>
+                {/* Save as Template — right side */}
+                {(editing ? editEquipment.length > 0 : mobilization.equipment_checklist.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => setSaveTemplateModalOpen(true)}
+                    className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    Save as Template
+                  </button>
+                )}
               </div>
               {!editing ? (
                 mobilization.equipment_checklist.length > 0 ? (
@@ -879,10 +901,12 @@ export function MobilizationDetail({ mobilization: initial, auditLog, equipmentT
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmTemplateLoad(null)} />
           <div className="relative w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-foreground">Replace current checklist?</h3>
+            <h3 className="text-lg font-semibold text-foreground">Replace current checklist with template?</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              This will replace {editEquipment.length} existing item{editEquipment.length !== 1 ? 's' : ''} with
+              This will replace the {(editing ? editEquipment : mobilization.equipment_checklist).length} existing
+              item{(editing ? editEquipment : mobilization.equipment_checklist).length !== 1 ? 's' : ''} with
               the <strong>{confirmTemplateLoad.name}</strong> template ({confirmTemplateLoad.items.length} items).
+              {!editing && ' Changes will be saved immediately.'}
             </p>
             <div className="mt-4 flex justify-end gap-3">
               <button
@@ -895,7 +919,7 @@ export function MobilizationDetail({ mobilization: initial, auditLog, equipmentT
                 onClick={() => applyTemplate(confirmTemplateLoad)}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
-                Replace
+                Confirm
               </button>
             </div>
           </div>
