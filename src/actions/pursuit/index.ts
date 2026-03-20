@@ -55,7 +55,7 @@ export async function createPursuitAction(
   }
 
   // Create the pursuit
-  const pursuit = pursuitDb.createPursuit(parsed.data, actor.id)
+  const pursuit = pursuitDb.createPursuit(parsed.data as any, actor.id)
 
   // Link the pursuit back to the signal
   signalDb.updateProjectSignal(
@@ -79,7 +79,7 @@ export async function updatePursuitAction(
 
   const { id, ...changes } = parsed.data
   const actor = getCurrentActor()
-  const pursuit = pursuitDb.updatePursuit(id, changes, actor.id)
+  const pursuit = pursuitDb.updatePursuit(id, changes as any, actor.id)
   return { success: true, data: pursuit }
 }
 

@@ -75,7 +75,7 @@ export async function updateContactAction(
     }
   }
 
-  const contact = contactDb.updateContact(id, changes, 'system')
+  const contact = contactDb.updateContact(id, changes as any, 'system')
   return { success: true, data: contact }
 }
 

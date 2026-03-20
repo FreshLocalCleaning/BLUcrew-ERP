@@ -1,5 +1,12 @@
 import { z } from 'zod/v4'
 
+// ---------------------------------------------------------------------------
+// Preprocess helpers: convert empty strings from HTML selects to undefined
+// ---------------------------------------------------------------------------
+
+const optionalEnum = <T extends [string, ...string[]]>(values: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), z.enum(values).optional())
+
 export const createSiteWalkSchema = z.object({
   pursuit_id: z.string().min(1, 'Pursuit ID is required'),
   walk_date: z.string().min(1, 'Walk date is required'),
@@ -13,7 +20,7 @@ export type CreateSiteWalkInput = z.infer<typeof createSiteWalkSchema>
 
 export const updateSiteWalkSchema = createSiteWalkSchema.partial().extend({
   id: z.string().min(1, 'Site Walk ID is required'),
-  status: z.enum(['scheduled', 'completed', 'cancelled']).optional(),
+  status: optionalEnum(['scheduled', 'completed', 'cancelled'] as [string, ...string[]]),
 })
 
 export type UpdateSiteWalkInput = z.infer<typeof updateSiteWalkSchema>

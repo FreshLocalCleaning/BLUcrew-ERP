@@ -53,7 +53,7 @@ export async function updateSiteWalkAction(
 
   const { id, ...changes } = parsed.data
   const actor = getCurrentActor()
-  const siteWalk = siteWalkDb.updateSiteWalk(id, changes, actor.id)
+  const siteWalk = siteWalkDb.updateSiteWalk(id, changes as any, actor.id)
   return { success: true, data: siteWalk }
 }
 

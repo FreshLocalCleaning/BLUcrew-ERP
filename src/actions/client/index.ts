@@ -41,7 +41,7 @@ export async function createClientAction(
   }
 
   const actor = getCurrentActor()
-  const client = clientDb.createClient(parsed.data, actor.id)
+  const client = clientDb.createClient(parsed.data as any, actor.id)
   return { success: true, data: client }
 }
 
@@ -56,7 +56,7 @@ export async function updateClientAction(
 
   const { id, ...changes } = parsed.data
   const actor = getCurrentActor()
-  const client = clientDb.updateClient(id, changes, actor.id)
+  const client = clientDb.updateClient(id, changes as any, actor.id)
   return { success: true, data: client }
 }
 

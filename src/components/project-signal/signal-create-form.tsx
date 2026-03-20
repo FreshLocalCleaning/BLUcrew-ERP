@@ -31,7 +31,7 @@ export function SignalCreateForm({ clients, contacts }: SignalCreateFormProps) {
     setValue,
     watch,
   } = useForm<CreateProjectSignalInput>({
-    resolver: zodResolver(createProjectSignalSchema),
+    resolver: zodResolver(createProjectSignalSchema) as any,
     defaultValues: {
       source_evidence: '',
       project_identity: '',

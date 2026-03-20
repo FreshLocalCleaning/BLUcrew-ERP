@@ -88,7 +88,7 @@ export function PursuitCreateForm({ clients, contacts, passedSignals, preselecte
     setValue,
     formState: { errors },
   } = useForm<CreatePursuitInput>({
-    resolver: zodResolver(createPursuitSchema),
+    resolver: zodResolver(createPursuitSchema) as any,
     defaultValues: {
       linked_signal_id: preselectedSignalId ?? '',
       project_name: preSignal?.project_identity ?? '',

@@ -32,7 +32,7 @@ export function EstimateCreateForm({ eligiblePursuits, pursuitsWithExistingEstim
     setValue,
     formState: { errors },
   } = useForm<CreateEstimateInput>({
-    resolver: zodResolver(createEstimateSchema),
+    resolver: zodResolver(createEstimateSchema) as any,
     defaultValues: {
       linked_pursuit_id: prePursuit?.id ?? '',
       linked_client_id: prePursuit?.client_id ?? '',

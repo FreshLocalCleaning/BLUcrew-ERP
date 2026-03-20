@@ -52,7 +52,7 @@ export async function updateCloseoutPlanAction(
 
   const { id, ...changes } = parsed.data
   const actor = getCurrentActor()
-  const plan = closeoutPlanDb.updateCloseoutPlan(id, changes, actor.id)
+  const plan = closeoutPlanDb.updateCloseoutPlan(id, changes as any, actor.id)
   return { success: true, data: plan }
 }
 

@@ -50,6 +50,12 @@ export const createAwardHandoffSchema = z.object({
 export type CreateAwardHandoffInput = z.infer<typeof createAwardHandoffSchema>
 
 // ---------------------------------------------------------------------------
+// Preprocess helpers: convert empty strings from HTML inputs to undefined
+// ---------------------------------------------------------------------------
+
+const emptyToUndefined = z.preprocess((v) => (v === '' ? undefined : v), z.string().optional())
+
+// ---------------------------------------------------------------------------
 // Update Schema
 // ---------------------------------------------------------------------------
 
@@ -59,9 +65,9 @@ export const updateAwardHandoffSchema = z.object({
   startup_blockers: z.array(startupBlockerItemSchema).optional(),
   teams_handoff_post_url: z.string().nullable().optional(),
   pm_claim_user_id: z.string().nullable().optional(),
-  pm_claim_timestamp: z.string().nullable().optional(),
+  pm_claim_timestamp: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().optional()),
   next_action: z.string().max(500).optional(),
-  next_action_date: z.string().optional(),
+  next_action_date: emptyToUndefined,
 })
 
 export type UpdateAwardHandoffInput = z.infer<typeof updateAwardHandoffSchema>

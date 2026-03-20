@@ -56,6 +56,16 @@ const qcStageCompletionSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
+// Preprocess helpers: convert empty strings from HTML inputs to undefined/null
+// ---------------------------------------------------------------------------
+
+const emptyToUndefined = z.preprocess((v) => (v === '' ? undefined : v), z.string().optional())
+const optionalEnum = <T extends [string, ...string[]]>(values: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), z.enum(values).optional())
+const nullableOptionalEnum = <T extends [string, ...string[]]>(values: T) =>
+  z.preprocess((v) => (v === '' ? null : v), z.enum(values).nullable().optional())
+
+// ---------------------------------------------------------------------------
 // Create Schema
 // ---------------------------------------------------------------------------
 
@@ -65,10 +75,10 @@ export const createMobilizationSchema = z.object({
   stage_name: z.string().min(1, 'Stage name is required').max(200),
   crew_lead_id: z.string().nullable().default(null),
   named_technicians: z.array(z.string()).default([]),
-  requested_start_date: z.string().nullable().default(null),
-  requested_end_date: z.string().nullable().default(null),
-  actual_start_date: z.string().nullable().default(null),
-  actual_end_date: z.string().nullable().default(null),
+  requested_start_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().default(null)),
+  requested_end_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().default(null)),
+  actual_start_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().default(null)),
+  actual_end_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().default(null)),
   site_address: z.string().nullable().default(null),
   access_plan: z.string().nullable().default(null),
   travel_posture: TravelPostureEnum.default('local'),
@@ -88,9 +98,9 @@ export const createMobilizationSchema = z.object({
   compressed_planning: z.boolean().default(false),
   daily_reports: z.array(dailyReportSchema).default([]),
   photo_report_link: z.string().nullable().default(null),
-  client_signoff_status: ClientSignoffStatusEnum.nullable().default(null),
+  client_signoff_status: z.preprocess((v) => (v === '' ? null : v), ClientSignoffStatusEnum.nullable().default(null)),
   qc_stage_completion: qcStageCompletionSchema.nullable().default(null),
-  invoice_release_status: InvoiceReleaseStatusEnum.nullable().default(null),
+  invoice_release_status: z.preprocess((v) => (v === '' ? null : v), InvoiceReleaseStatusEnum.nullable().default(null)),
   blocker_reason: z.string().nullable().default(null),
   blocker_owner: z.string().nullable().default(null),
   missing_items_log: z.array(z.string()).nullable().default(null),
@@ -108,13 +118,13 @@ export const updateMobilizationSchema = z.object({
   stage_name: z.string().min(1).max(200).optional(),
   crew_lead_id: z.string().nullable().optional(),
   named_technicians: z.array(z.string()).optional(),
-  requested_start_date: z.string().nullable().optional(),
-  requested_end_date: z.string().nullable().optional(),
-  actual_start_date: z.string().nullable().optional(),
-  actual_end_date: z.string().nullable().optional(),
+  requested_start_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().optional()),
+  requested_end_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().optional()),
+  actual_start_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().optional()),
+  actual_end_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().optional()),
   site_address: z.string().nullable().optional(),
   access_plan: z.string().nullable().optional(),
-  travel_posture: TravelPostureEnum.optional(),
+  travel_posture: optionalEnum(['local', 'overnight'] as [string, ...string[]]),
   lodging_details: lodgingDetailsSchema.nullable().optional(),
   per_diem_budget: z.number().nullable().optional(),
   equipment_checklist: z.array(equipmentItemSchema).optional(),
@@ -122,15 +132,15 @@ export const updateMobilizationSchema = z.object({
   readiness_checklist: readinessChecklistSchema.optional(),
   compressed_planning: z.boolean().optional(),
   photo_report_link: z.string().nullable().optional(),
-  client_signoff_status: ClientSignoffStatusEnum.nullable().optional(),
+  client_signoff_status: nullableOptionalEnum(['pending', 'obtained', 'disputed'] as [string, ...string[]]),
   qc_stage_completion: qcStageCompletionSchema.nullable().optional(),
-  invoice_release_status: InvoiceReleaseStatusEnum.nullable().optional(),
+  invoice_release_status: nullableOptionalEnum(['not_ready', 'staged', 'released'] as [string, ...string[]]),
   blocker_reason: z.string().nullable().optional(),
   blocker_owner: z.string().nullable().optional(),
   missing_items_log: z.array(z.string()).nullable().optional(),
   actuals_notes: z.string().nullable().optional(),
   next_action: z.string().max(500).optional(),
-  next_action_date: z.string().optional(),
+  next_action_date: emptyToUndefined,
 })
 
 export type UpdateMobilizationInput = z.infer<typeof updateMobilizationSchema>

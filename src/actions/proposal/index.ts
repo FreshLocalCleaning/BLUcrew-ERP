@@ -87,7 +87,7 @@ export async function updateProposalAction(
 
   const { id, ...changes } = parsed.data
   const actor = getCurrentActor()
-  const proposal = proposalDb.updateProposal(id, changes, actor.id)
+  const proposal = proposalDb.updateProposal(id, changes as any, actor.id)
   return { success: true, data: proposal }
 }
 

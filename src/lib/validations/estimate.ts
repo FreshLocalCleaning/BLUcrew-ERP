@@ -50,6 +50,12 @@ export const estimatePricingSummarySchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
+// Preprocess helpers: convert empty strings from HTML inputs to undefined
+// ---------------------------------------------------------------------------
+
+const emptyToUndefined = z.preprocess((v) => (v === '' ? undefined : v), z.string().optional())
+
+// ---------------------------------------------------------------------------
 // Create Schema
 // ---------------------------------------------------------------------------
 
@@ -65,7 +71,7 @@ export const createEstimateSchema = z.object({
   build_type: z.string().nullable().optional(),
   square_footage: z.number().positive().nullable().optional(),
   next_action: z.string().max(500).optional(),
-  next_action_date: z.string().optional(),
+  next_action_date: emptyToUndefined,
   notes: z.string().max(5000).optional(),
 })
 
@@ -100,7 +106,7 @@ export const updateEstimateSchema = z.object({
   qa_notes: z.string().max(5000).nullable().optional(),
   estimator_snapshot: z.record(z.string(), z.unknown()).nullable().optional(),
   next_action: z.string().max(500).optional(),
-  next_action_date: z.string().optional(),
+  next_action_date: emptyToUndefined,
 })
 
 export type UpdateEstimateInput = z.infer<typeof updateEstimateSchema>

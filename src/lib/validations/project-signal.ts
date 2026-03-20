@@ -10,6 +10,12 @@ export const ProjectSignalTypeSchema = z.enum(PROJECT_SIGNAL_TYPES)
 export const ProjectSignalStateEnum = z.enum(PROJECT_SIGNAL_STATES as unknown as [string, ...string[]])
 
 // ---------------------------------------------------------------------------
+// Preprocess helpers: convert empty strings from HTML selects to undefined
+// ---------------------------------------------------------------------------
+
+const emptyToUndefined = z.preprocess((v) => (v === '' ? undefined : v), z.string().optional())
+
+// ---------------------------------------------------------------------------
 // Create Schema
 // ---------------------------------------------------------------------------
 
@@ -20,7 +26,7 @@ export const createProjectSignalSchema = z.object({
     .min(1, 'Source evidence is required')
     .max(2000, 'Source evidence must be under 2000 characters'),
   linked_client_id: z.string().min(1, 'Client is required'),
-  linked_contact_id: z.string().optional(),
+  linked_contact_id: emptyToUndefined,
   project_identity: z
     .string()
     .min(1, 'Project identity is required')
@@ -29,7 +35,7 @@ export const createProjectSignalSchema = z.object({
   fit_risk_note: z.string().max(2000).nullable().optional(),
   notes: z.string().max(5000).optional(),
   next_action: z.string().max(500).optional(),
-  next_action_date: z.string().optional(),
+  next_action_date: emptyToUndefined,
 })
 
 export type CreateProjectSignalInput = z.infer<typeof createProjectSignalSchema>

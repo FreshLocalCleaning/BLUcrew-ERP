@@ -87,7 +87,7 @@ export async function updateMobilizationFieldsAction(
 
   const { id, ...changes } = parsed.data
   const actor = getCurrentActor()
-  const updated = mobilizationDb.updateMobilization(id, changes, actor.id)
+  const updated = mobilizationDb.updateMobilization(id, changes as any, actor.id)
   return { success: true, data: updated }
 }
 

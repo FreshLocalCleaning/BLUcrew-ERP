@@ -18,6 +18,14 @@ export const ClientRelationshipSchema = z.enum(CLIENT_RELATIONSHIP_STRENGTHS)
 export const ClientStateEnum = z.enum(CLIENT_STATES as unknown as [string, ...string[]])
 
 // ---------------------------------------------------------------------------
+// Preprocess helpers: convert empty strings from HTML selects to undefined
+// ---------------------------------------------------------------------------
+
+const emptyToUndefined = z.preprocess((v) => (v === '' ? undefined : v), z.string().optional())
+const optionalEnum = <T extends [string, ...string[]]>(values: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), z.enum(values).optional())
+
+// ---------------------------------------------------------------------------
 // Create Schema
 // ---------------------------------------------------------------------------
 
@@ -27,15 +35,15 @@ export const createClientSchema = z.object({
     .min(1, 'Client name is required')
     .max(200, 'Client name must be under 200 characters'),
   dba: z.string().max(200).optional(),
-  tier: ClientTierSchema.optional(),
-  vertical: ClientVerticalSchema.optional(),
-  market: ClientMarketSchema.optional(),
-  relationship_strength: ClientRelationshipSchema.optional(),
+  tier: optionalEnum(CLIENT_TIERS as unknown as [string, ...string[]]),
+  vertical: optionalEnum(CLIENT_VERTICALS as unknown as [string, ...string[]]),
+  market: optionalEnum(CLIENT_MARKETS as unknown as [string, ...string[]]),
+  relationship_strength: optionalEnum(CLIENT_RELATIONSHIP_STRENGTHS as unknown as [string, ...string[]]),
   next_action: z.string().max(500).optional(),
-  next_action_date: z.string().optional(),
+  next_action_date: emptyToUndefined,
   notes: z.string().max(5000).optional(),
-  bd_owner_id: z.string().optional(),
-  bd_owner_name: z.string().optional(),
+  bd_owner_id: emptyToUndefined,
+  bd_owner_name: emptyToUndefined,
   ghl_company_id: z.string().optional(),
   preferred_provider_candidate: z.boolean().default(false),
 })

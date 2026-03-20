@@ -20,6 +20,14 @@ const pricingDeltaSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
+// Preprocess helpers: convert empty strings from HTML inputs to undefined/null
+// ---------------------------------------------------------------------------
+
+const emptyToUndefined = z.preprocess((v) => (v === '' ? undefined : v), z.string().optional())
+const optionalEnum = <T extends [string, ...string[]]>(values: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), z.enum(values).optional())
+
+// ---------------------------------------------------------------------------
 // Create Schema
 // ---------------------------------------------------------------------------
 
@@ -48,7 +56,7 @@ export type CreateChangeOrderInput = z.infer<typeof createChangeOrderSchema>
 
 export const updateChangeOrderSchema = z.object({
   id: z.string().min(1, 'Change Order ID is required'),
-  origin: ChangeOrderOriginEnum.optional(),
+  origin: optionalEnum(CHANGE_ORDER_ORIGINS as unknown as [string, ...string[]]),
   scope_delta: z.string().min(1).max(5000).optional(),
   pricing_delta: pricingDeltaSchema.nullable().optional(),
   schedule_delta: z.string().nullable().optional(),
@@ -57,10 +65,10 @@ export const updateChangeOrderSchema = z.object({
   priced_by: z.string().nullable().optional(),
   approval_notes: z.string().nullable().optional(),
   release_notes: z.string().nullable().optional(),
-  client_response_date: z.string().nullable().optional(),
+  client_response_date: z.preprocess((v) => (v === '' ? null : v), z.string().nullable().optional()),
   rejection_reason: z.string().nullable().optional(),
   next_action: z.string().max(500).optional(),
-  next_action_date: z.string().optional(),
+  next_action_date: emptyToUndefined,
 })
 
 export type UpdateChangeOrderInput = z.infer<typeof updateChangeOrderSchema>
