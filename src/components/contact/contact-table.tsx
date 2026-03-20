@@ -58,7 +58,7 @@ const columns = [
     cell: (info) => {
       const c = info.row.original
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           {c.is_champion && (
             <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
           )}
@@ -90,7 +90,7 @@ const columns = [
     cell: (info) => (
       <Link
         href={`/clients/${info.row.original.client_id}`}
-        className="hover:underline"
+        className="whitespace-nowrap hover:underline"
         style={{ color: '#60a5fa' }}
       >
         {info.getValue()}
