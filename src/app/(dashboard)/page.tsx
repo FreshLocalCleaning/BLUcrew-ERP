@@ -64,18 +64,39 @@ export default function HomePage() {
   const opsData = opsHealthSnapshot()
   const contactFollowups = contactFollowupCounts()
 
+  const today = new Date()
+  const greeting = today.getHours() < 12 ? 'Good morning' : today.getHours() < 17 ? 'Good afternoon' : 'Good evening'
+  const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const urgentCount = items.filter(i => (i.days_overdue ?? 0) > 0).length
+  const todayCount = items.filter(i => i.days_until === 0 || i.days_overdue === 0).length
+
   return (
-    <div className="space-y-8">
-      {/* Page heading */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          BLU Crew Commercial ERP — Command Center
-        </p>
+    <div className="space-y-6">
+      {/* Hero header */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{greeting}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{dateStr}</p>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          {urgentCount > 0 && (
+            <span className="rounded-full bg-red-500/10 px-2.5 py-1 font-medium text-red-400">
+              {urgentCount} overdue
+            </span>
+          )}
+          {todayCount > 0 && (
+            <span className="rounded-full bg-amber-500/10 px-2.5 py-1 font-medium text-amber-400">
+              {todayCount} due today
+            </span>
+          )}
+          <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground">
+            {items.length} action items
+          </span>
+        </div>
       </div>
 
-      {/* SECTION 1 — KPI Summary Strip */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+      {/* SECTION 1 — KPI Cards: Commercial row */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           label="Signal→Pursuit"
           value={`${Math.round(signalConv.rate * 100)}%`}
@@ -83,14 +104,6 @@ export default function HomePage() {
           icon="zap"
           color="text-blue-400"
           href="/project-signals"
-        />
-        <KpiCard
-          label="Est. Ready Cycle"
-          value={`${estCycle.median_days}d`}
-          subtitle={`${estCycle.sample_count} pursuits`}
-          icon="clock"
-          color="text-cyan-400"
-          href="/pursuits"
         />
         <KpiCard
           label="Win Rate (90d)"
@@ -108,6 +121,18 @@ export default function HomePage() {
           color="text-amber-400"
           href="/proposals"
         />
+        <KpiCard
+          label="Est. Ready Cycle"
+          value={`${estCycle.median_days}d`}
+          subtitle={`${estCycle.sample_count} pursuits`}
+          icon="clock"
+          color="text-cyan-400"
+          href="/pursuits"
+        />
+      </div>
+
+      {/* KPI Cards: Operations row */}
+      <div className="grid grid-cols-3 gap-3">
         <KpiCard
           label="Awaiting PM Claim"
           value={String(pmClaim)}
