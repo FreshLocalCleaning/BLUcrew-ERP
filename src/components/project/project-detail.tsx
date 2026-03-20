@@ -12,7 +12,7 @@ import {
 } from '@/lib/state-machines/project'
 import { getAvailableTransitions } from '@/lib/state-machines/engine'
 import { transitionProjectAction } from '@/actions/project'
-import type { Project, Mobilization, ChangeOrder } from '@/types/commercial'
+import type { Project, Mobilization, ChangeOrder, ExpansionTask } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
 import Link from 'next/link'
@@ -35,6 +35,7 @@ import {
   Receipt,
   ClipboardCheck,
   Plus,
+  Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -44,6 +45,7 @@ interface ProjectDetailProps {
   auditLog: AuditEntry[]
   mobilizations?: Mobilization[]
   changeOrders?: ChangeOrder[]
+  expansionTasks?: ExpansionTask[]
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -66,7 +68,7 @@ function formatDate(iso?: string | null): string {
 
 type Tab = 'overview' | 'mobilizations' | 'change_orders' | 'baseline' | 'financials' | 'closeout' | 'activity'
 
-export function ProjectDetail({ project: initial, auditLog, mobilizations = [], changeOrders = [] }: ProjectDetailProps) {
+export function ProjectDetail({ project: initial, auditLog, mobilizations = [], changeOrders = [], expansionTasks = [] }: ProjectDetailProps) {
   const router = useRouter()
   const [project, setProject] = useState(initial)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -328,12 +330,52 @@ export function ProjectDetail({ project: initial, auditLog, mobilizations = [], 
         )}
 
         {activeTab === 'closeout' && (
-          <div className="rounded-lg border border-dashed border-border bg-card p-12 text-center">
-            <ClipboardCheck className="mx-auto h-8 w-8 text-muted-foreground" />
-            <h3 className="mt-3 text-lg font-semibold text-foreground">Closeout</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Closeout checklist will be built in a later sprint.
-            </p>
+          <div className="space-y-6">
+            <div className="rounded-lg border border-dashed border-border bg-card p-12 text-center">
+              <ClipboardCheck className="mx-auto h-8 w-8 text-muted-foreground" />
+              <h3 className="mt-3 text-lg font-semibold text-foreground">Closeout</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Closeout checklist will be built in a later sprint.
+              </p>
+            </div>
+
+            {/* Expansion / Growth Tasks */}
+            <div className="rounded-lg border border-border bg-card p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-foreground">Growth Tasks</h2>
+                <Link
+                  href={`/growth/new?project=${project.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  New Growth Task
+                </Link>
+              </div>
+              {expansionTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No growth tasks yet. These are auto-created when the project reaches operationally complete.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {expansionTasks.map((task) => (
+                    <Link
+                      key={task.id}
+                      href={`/growth/${task.id}`}
+                      className="flex items-center justify-between rounded-md border border-border p-3 hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Zap className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{task.reference_id}</p>
+                          <p className="text-xs text-muted-foreground">{task.growth_objective}</p>
+                        </div>
+                      </div>
+                      <StatusBadge state={task.status} label={task.status.replace(/_/g, ' ')} />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

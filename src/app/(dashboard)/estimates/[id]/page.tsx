@@ -4,9 +4,10 @@ import { ChevronRight } from 'lucide-react'
 import { getEstimate } from '@/lib/db/estimates'
 import { getPursuit } from '@/lib/db/pursuits'
 import { getClient } from '@/lib/db/clients'
+import { listProposals } from '@/lib/db/proposals'
 import { getAuditLog } from '@/lib/db/json-db'
 import { EstimateDetail } from '@/components/estimate/estimate-detail'
-import { seedClients, seedContacts, seedProjectSignals, seedPursuits, seedEstimates } from '@/lib/db/seed'
+import { seedClients, seedContacts, seedProjectSignals, seedPursuits, seedEstimates, seedProposals } from '@/lib/db/seed'
 
 interface EstimateDetailPageProps {
   params: Promise<{ id: string }>
@@ -21,6 +22,7 @@ export default async function EstimateDetailPage({ params }: EstimateDetailPageP
   seedProjectSignals()
   seedPursuits()
   seedEstimates()
+  seedProposals()
 
   const estimate = getEstimate(id)
   if (!estimate) {
@@ -30,6 +32,7 @@ export default async function EstimateDetailPage({ params }: EstimateDetailPageP
   const pursuit = getPursuit(estimate.linked_pursuit_id)
   const client = getClient(estimate.linked_client_id)
   const auditLog = getAuditLog('estimates', id)
+  const linkedProposal = listProposals().find((p) => p.linked_estimate_id === id) ?? null
 
   return (
     <div className="space-y-6">
@@ -81,7 +84,7 @@ export default async function EstimateDetailPage({ params }: EstimateDetailPageP
       </div>
 
       {/* Detail component */}
-      <EstimateDetail estimate={estimate} auditLog={auditLog} />
+      <EstimateDetail estimate={estimate} auditLog={auditLog} linkedProposal={linkedProposal} />
     </div>
   )
 }

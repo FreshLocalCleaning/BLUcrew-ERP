@@ -6,6 +6,7 @@ import { getAwardHandoff } from '@/lib/db/award-handoffs'
 import { getClient } from '@/lib/db/clients'
 import { listMobilizationsByProject } from '@/lib/db/mobilizations'
 import { listChangeOrdersByProject } from '@/lib/db/change-orders'
+import { listExpansionTasksByProject } from '@/lib/db/expansion-tasks'
 import { getAuditLog } from '@/lib/db/json-db'
 import { ProjectDetail } from '@/components/project/project-detail'
 import {
@@ -19,6 +20,7 @@ import {
   seedProjects,
   seedMobilizations,
   seedChangeOrders,
+  seedExpansionTasks,
 } from '@/lib/db/seed'
 
 interface ProjectDetailPageProps {
@@ -48,6 +50,8 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   const client = getClient(project.linked_client_id)
   const mobilizations = listMobilizationsByProject(id)
   const changeOrders = listChangeOrdersByProject(id)
+  seedExpansionTasks()
+  const expansionTasks = listExpansionTasksByProject(id)
   const auditLog = getAuditLog('projects', id)
 
   return (
@@ -83,7 +87,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </p>
       </div>
 
-      <ProjectDetail project={project} auditLog={auditLog} mobilizations={mobilizations} changeOrders={changeOrders} />
+      <ProjectDetail project={project} auditLog={auditLog} mobilizations={mobilizations} changeOrders={changeOrders} expansionTasks={expansionTasks} />
     </div>
   )
 }

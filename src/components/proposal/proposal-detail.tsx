@@ -193,9 +193,12 @@ export function ProposalDetail({ proposal: initialProposal, auditLog }: Proposal
               </p>
             )}
             {proposal.created_award_id && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Award/Handoff: {proposal.created_award_id}
-              </p>
+              <a
+                href={`/handoffs/${proposal.created_award_id}`}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+              >
+                View Award/Handoff →
+              </a>
             )}
           </div>
         )}

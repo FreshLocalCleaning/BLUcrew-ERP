@@ -171,9 +171,16 @@ export function ExpansionTaskDetail({ expansionTask: initial, auditLog }: Expans
                     <Zap className="mt-0.5 h-4 w-4 text-green-600" />
                     <div>
                       <p className="text-sm font-medium text-green-800 dark:text-green-200">Signal Created</p>
-                      <p className="text-sm text-green-700 dark:text-green-300">
-                        Linked Signal ID: {expansionTask.next_signal_id ?? 'Unknown'}
-                      </p>
+                      {expansionTask.next_signal_id ? (
+                        <a
+                          href={`/project-signals/${expansionTask.next_signal_id}`}
+                          className="text-sm text-green-700 hover:underline dark:text-green-300"
+                        >
+                          View Project Signal →
+                        </a>
+                      ) : (
+                        <p className="text-sm text-green-700 dark:text-green-300">Signal ID unknown</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -184,6 +191,13 @@ export function ExpansionTaskDetail({ expansionTask: initial, auditLog }: Expans
                   <p className="mt-1 text-sm text-muted-foreground">
                     When this growth task generates new work, create a Project Signal to track it.
                   </p>
+                  <a
+                    href={`/project-signals/new?clientId=${expansionTask.linked_client_id}&expansionId=${expansionTask.id}`}
+                    className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Zap className="h-4 w-4" />
+                    Create New Signal
+                  </a>
                 </div>
               )}
             </div>
@@ -238,6 +252,24 @@ export function ExpansionTaskDetail({ expansionTask: initial, auditLog }: Expans
           <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Actions
           </h3>
+          {expansionTask.linked_project_id && (
+            <a
+              href={`/projects/${expansionTask.linked_project_id}`}
+              className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+            >
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              View Project
+            </a>
+          )}
+          {!expansionTask.next_signal_created && (
+            <a
+              href={`/project-signals/new?clientId=${expansionTask.linked_client_id}&expansionId=${expansionTask.id}`}
+              className="flex w-full items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Zap className="h-4 w-4" />
+              Create New Signal
+            </a>
+          )}
           {!isTerminal && (
             <button
               onClick={() => setStatusModalOpen(true)}

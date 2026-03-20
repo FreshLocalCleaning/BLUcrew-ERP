@@ -15,9 +15,10 @@ import {
 import { getAvailableTransitions } from '@/lib/state-machines/engine'
 import { transitionEstimateAction } from '@/actions/estimate'
 import { ESTIMATE_TIER_LABEL_MAP } from '@/types/commercial'
-import type { Estimate } from '@/types/commercial'
+import type { Estimate, Proposal } from '@/types/commercial'
 import type { AuditEntry } from '@/lib/db/json-db'
 import type { Role } from '@/lib/permissions/roles'
+import Link from 'next/link'
 import {
   ArrowLeftRight,
   FileText,
@@ -32,6 +33,8 @@ import {
   Target,
   CheckCircle2,
   Circle,
+  Plus,
+  ArrowRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -41,6 +44,7 @@ type TabId = 'build' | 'summary' | 'qa_review' | 'versions' | 'activity'
 interface EstimateDetailProps {
   estimate: Estimate
   auditLog: AuditEntry[]
+  linkedProposal?: Proposal | null
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -52,7 +56,7 @@ function formatCurrency(value: number | null | undefined): string {
   }).format(value)
 }
 
-export function EstimateDetail({ estimate: initialEstimate, auditLog }: EstimateDetailProps) {
+export function EstimateDetail({ estimate: initialEstimate, auditLog, linkedProposal }: EstimateDetailProps) {
   const router = useRouter()
   const [estimate, setEstimate] = useState(initialEstimate)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -426,6 +430,26 @@ export function EstimateDetail({ estimate: initialEstimate, auditLog }: Estimate
           <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Actions
           </h3>
+          {/* Create Proposal — when approved and no proposal exists */}
+          {estimate.status === 'approved_for_proposal' && !linkedProposal && (
+            <Link
+              href={`/proposals/new?estimateId=${estimate.id}`}
+              className="flex w-full items-center gap-2 rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
+            >
+              <Plus className="h-4 w-4" />
+              Create Proposal
+            </Link>
+          )}
+          {/* Link to existing proposal */}
+          {linkedProposal && (
+            <Link
+              href={`/proposals/${linkedProposal.id}`}
+              className="flex w-full items-center gap-2 rounded-md border border-green-600 px-3 py-2 text-sm font-medium text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+            >
+              <ArrowRight className="h-4 w-4" />
+              View Proposal ({linkedProposal.reference_id})
+            </Link>
+          )}
           {estimate.status !== 'superseded' && (
             <button
               onClick={() => setStatusModalOpen(true)}
