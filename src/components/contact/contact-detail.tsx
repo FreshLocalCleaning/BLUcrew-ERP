@@ -74,6 +74,23 @@ const STRENGTH_COLORS: Record<ContactRelationshipStrength, { bg: string; text: s
 }
 
 // ---------------------------------------------------------------------------
+// Touch type labels
+// ---------------------------------------------------------------------------
+
+const TOUCH_TYPE_LABELS: Record<string, string> = {
+  call: 'Phone Call',
+  email: 'Email',
+  text: 'Text Message',
+  in_person: 'In Person',
+  linkedin: 'LinkedIn',
+  event: 'Event',
+  trailer_visit: 'Trailer Visit',
+  luncheon: 'Luncheon',
+  meeting: 'Meeting',
+  site_visit: 'Site Visit',
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -147,12 +164,19 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
     influence: contact.influence,
     relationship_strength: contact.relationship_strength,
     source_channel: contact.source_channel ?? '',
+    project_visibility_notes: contact.project_visibility_notes ?? '',
+    access_path: contact.access_path ?? '',
+    pain_points: contact.pain_points ?? '',
     notes: contact.notes ?? '',
     owner_name: contact.owner_name ?? '',
     is_champion: contact.is_champion,
     champion_reason: contact.champion_reason ?? '',
   })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [editingNextStep, setEditingNextStep] = useState(false)
+  const [inlineNextStep, setInlineNextStep] = useState(contact.next_step ?? '')
+  const [inlineNextStepDueDate, setInlineNextStepDueDate] = useState(contact.next_step_due_date ?? '')
+  const [savingNextStep, setSavingNextStep] = useState(false)
   const [championModalOpen, setChampionModalOpen] = useState(false)
   const [championReason, setChampionReason] = useState('')
   const [savingChampion, setSavingChampion] = useState(false)
@@ -230,6 +254,61 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
     }
     setSavingChampion(false)
   }
+
+  async function handleSaveNextStep() {
+    setSavingNextStep(true)
+    try {
+      const result = await updateContactAction({
+        contact_id: contact.id,
+        next_step: inlineNextStep || undefined,
+        next_step_due_date: inlineNextStepDueDate || undefined,
+      })
+      if (result.success && result.data) {
+        setContact(result.data)
+        toast.success('Next step updated')
+        setEditingNextStep(false)
+        router.refresh()
+      } else {
+        toast.error(result.error ?? 'Failed to update')
+      }
+    } catch {
+      toast.error('An unexpected error occurred')
+    }
+    setSavingNextStep(false)
+  }
+
+  // Extract touch history from audit log
+  const touchHistory = auditLog
+    .filter((entry) => entry.reason?.startsWith('Touch logged'))
+    .slice()
+    .reverse()
+    .map((entry) => {
+      const reason = entry.reason ?? ''
+      // Format: "Touch logged: [type] — summary — Next: next step"
+      let touchType = ''
+      let summary = ''
+      let nextStep = ''
+      const afterPrefix = reason.replace('Touch logged', '').replace(/^:\s*/, '')
+      const typeMatch = afterPrefix.match(/^\[([^\]]+)\]/)
+      if (typeMatch && typeMatch[1]) {
+        touchType = typeMatch[1]
+      }
+      const parts = afterPrefix.replace(/^\[[^\]]+\]\s*/, '').split(' — ')
+      const lastPart = parts[parts.length - 1] ?? ''
+      if (parts.length >= 2 && lastPart.startsWith('Next: ')) {
+        nextStep = lastPart.replace('Next: ', '')
+        summary = parts.slice(0, -1).join(' — ')
+      } else {
+        summary = parts.join(' — ')
+      }
+      return {
+        id: entry.id,
+        timestamp: entry.timestamp,
+        touchType,
+        summary: summary.trim(),
+        nextStep: nextStep.trim(),
+      }
+    })
 
   const influenceStyle = INFLUENCE_COLORS[contact.influence]
   const strengthStyle = STRENGTH_COLORS[contact.relationship_strength]
@@ -476,53 +555,191 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
             </div>
           </div>
 
-          {/* Next Step with Due Date */}
-          {(contact.next_step || contact.next_step_due_date) && (
-            <div className="rounded border border-border bg-muted/30 p-3 mb-3">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-xs font-medium uppercase text-muted-foreground">Next Step</p>
-                  <p className="text-sm text-foreground mt-0.5">{contact.next_step ?? '—'}</p>
+          {/* Next Step with Due Date — inline editable */}
+          <div className="rounded border border-border bg-muted/30 p-3 mb-4">
+            {editingNextStep ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Next Step</label>
+                  <input
+                    value={inlineNextStep}
+                    onChange={(e) => setInlineNextStep(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. Follow up on pricing..."
+                  />
                 </div>
-                {contact.next_step_due_date && (
-                  <div className="shrink-0 text-right">
-                    <p className="text-xs font-medium uppercase text-muted-foreground">Due Date</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <CalendarClock className={cn('h-3.5 w-3.5', dueDateColor)} />
-                      <span className={cn('text-sm font-medium', dueDateColor)}>
-                        {formatDate(contact.next_step_due_date)}
-                      </span>
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Due Date</label>
+                  <input
+                    type="date"
+                    value={inlineNextStepDueDate}
+                    onChange={(e) => setInlineNextStepDueDate(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingNextStep(false)
+                      setInlineNextStep(contact.next_step ?? '')
+                      setInlineNextStepDueDate(contact.next_step_due_date ?? '')
+                    }}
+                    className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" /> Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveNextStep}
+                    disabled={savingNextStep}
+                    className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    <Save className="h-3 w-3" /> {savingNextStep ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="flex items-start justify-between gap-4 cursor-pointer group"
+                onClick={() => {
+                  setInlineNextStep(contact.next_step ?? '')
+                  setInlineNextStepDueDate(contact.next_step_due_date ?? '')
+                  setEditingNextStep(true)
+                }}
+              >
+                <div className="flex-1">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">
+                    Next Step
+                    <Pencil className="ml-1.5 inline h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </p>
+                  <p className="text-sm text-foreground mt-0.5">{contact.next_step || '—'}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Due Date</p>
+                  {contact.next_step_due_date ? (
+                    <>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <CalendarClock className={cn('h-3.5 w-3.5', dueDateColor)} />
+                        <span className={cn('text-sm font-medium', dueDateColor)}>
+                          {formatDate(contact.next_step_due_date)}
+                        </span>
+                      </div>
+                      <p className={cn('text-xs font-medium mt-0.5', dueDateColor)}>
+                        {dueDateLabel}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-0.5">—</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Touch History */}
+          {touchHistory.length > 0 && (
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-muted-foreground">Touch History</h3>
+              <div className="space-y-3">
+                {touchHistory.map((touch) => (
+                  <div key={touch.id} className="flex gap-3 rounded border border-border bg-background p-3">
+                    <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">
+                          {formatTimestamp(touch.timestamp)}
+                        </span>
+                        {touch.touchType && (
+                          <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                            {TOUCH_TYPE_LABELS[touch.touchType] ?? touch.touchType}
+                          </span>
+                        )}
+                      </div>
+                      {touch.summary && (
+                        <p className="mt-1 text-sm text-foreground">{touch.summary}</p>
+                      )}
+                      {touch.nextStep && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Next step set: {touch.nextStep}
+                        </p>
+                      )}
                     </div>
-                    <p className={cn('text-xs font-medium mt-0.5', dueDateColor)}>
-                      {dueDateLabel}
-                    </p>
                   </div>
-                )}
+                ))}
               </div>
             </div>
+          )}
+          {touchHistory.length === 0 && contact.touch_count === 0 && (
+            <p className="text-sm text-muted-foreground">No touches recorded yet. Use &quot;Log Touch&quot; to record an interaction.</p>
           )}
         </div>
 
         {/* Intel & Notes */}
-        {(contact.project_visibility_notes || contact.access_path || contact.pain_points || contact.notes) && (
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Intel & Notes</h2>
-            <div className="space-y-4">
-              {contact.project_visibility_notes && (
-                <NoteBlock label="Project Visibility" text={contact.project_visibility_notes} />
-              )}
-              {contact.access_path && (
-                <NoteBlock label="Access Path" text={contact.access_path} />
-              )}
-              {contact.pain_points && (
-                <NoteBlock label="Pain Points" text={contact.pain_points} />
-              )}
-              {contact.notes && (
-                <NoteBlock label="Notes" text={contact.notes} />
-              )}
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Intel & Notes</h2>
+          {editing ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Project Visibility</label>
+                <input
+                  value={editData.project_visibility_notes}
+                  onChange={(e) => setEditData(prev => ({ ...prev, project_visibility_notes: e.target.value }))}
+                  className={inputClass}
+                  placeholder="What projects does this contact have visibility into?"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Access Path</label>
+                <input
+                  value={editData.access_path}
+                  onChange={(e) => setEditData(prev => ({ ...prev, access_path: e.target.value }))}
+                  className={inputClass}
+                  placeholder="How to reach this contact..."
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Pain Points</label>
+                <textarea
+                  value={editData.pain_points}
+                  onChange={(e) => setEditData(prev => ({ ...prev, pain_points: e.target.value }))}
+                  className={inputClass}
+                  rows={3}
+                  placeholder="Known pain points or challenges..."
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Notes</label>
+                <textarea
+                  value={editData.notes}
+                  onChange={(e) => setEditData(prev => ({ ...prev, notes: e.target.value }))}
+                  className={inputClass}
+                  rows={3}
+                  placeholder="General notes..."
+                />
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <>
+              {(contact.project_visibility_notes || contact.access_path || contact.pain_points || contact.notes) ? (
+                <div className="space-y-4">
+                  {contact.project_visibility_notes && (
+                    <NoteBlock label="Project Visibility" text={contact.project_visibility_notes} />
+                  )}
+                  {contact.access_path && (
+                    <NoteBlock label="Access Path" text={contact.access_path} />
+                  )}
+                  {contact.pain_points && (
+                    <NoteBlock label="Pain Points" text={contact.pain_points} />
+                  )}
+                  {contact.notes && (
+                    <NoteBlock label="Notes" text={contact.notes} />
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No intel or notes recorded yet.</p>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Activity Timeline */}
         <div className="rounded-lg border border-border bg-card p-6">
@@ -581,6 +798,9 @@ export function ContactDetail({ contact: initial, auditLog }: ContactDetailProps
                 influence: contact.influence,
                 relationship_strength: contact.relationship_strength,
                 source_channel: contact.source_channel ?? '',
+                project_visibility_notes: contact.project_visibility_notes ?? '',
+                access_path: contact.access_path ?? '',
+                pain_points: contact.pain_points ?? '',
                 notes: contact.notes ?? '',
                 owner_name: contact.owner_name ?? '',
                 is_champion: contact.is_champion,
