@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,12 +74,12 @@ export async function processTranscript(
   contactName: string,
   clientName: string,
 ): Promise<TranscriptAnalysis> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY environment variable is not set. Add it to your .env.local file.')
+    throw new Error('OPENAI_API_KEY environment variable is not set. Add it to your .env.local file.')
   }
 
-  const client = new Anthropic({ apiKey })
+  const client = new OpenAI({ apiKey })
   const today = new Date().toISOString().split('T')[0]
 
   const userMessage = `Today's date is ${today}.
@@ -89,14 +89,16 @@ Client: ${clientName}
 TRANSCRIPT:
 ${transcript}`
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o',
     max_tokens: 2000,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userMessage }],
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userMessage },
+    ],
   })
 
-  const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+  const text = response.choices[0]?.message?.content ?? ''
 
   // Parse the JSON response
   try {
